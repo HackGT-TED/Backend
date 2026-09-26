@@ -2202,36 +2202,6 @@
       "preview_path": "assets/sfx_catalog/previews/twig-snap.mp3"
     },
     {
-      "id": "sigh",
-      "label": "Sigh",
-      "category": "story",
-      "description": "A soft, contented or sleepy sigh (exhale), no voice or words.",
-      "keywords": [
-        "sigh",
-        "sighed",
-        "relieved sigh",
-        "contented"
-      ],
-      "search_query": "sigh exhale satisfied",
-      "preferred_tags": [
-        "sigh",
-        "exhale"
-      ],
-      "min_duration": 0.4,
-      "max_duration": 3.0,
-      "freesound_id": 436775,
-      "freesound_url": "https://freesound.org/s/436775/",
-      "preview_url": "https://cdn.freesound.org/previews/436/436775_7085413-hq.mp3",
-      "download_url": "https://freesound.org/apiv2/sounds/436775/download/",
-      "license": "http://creativecommons.org/publicdomain/zero/1.0/",
-      "duration": 2.08399,
-      "avg_rating": 4.89,
-      "num_downloads": 1030,
-      "username": "Kiyoshiakira",
-      "status": "pending",
-      "preview_path": "assets/sfx_catalog/previews/sigh.mp3"
-    },
-    {
       "id": "snore-soft",
       "label": "Soft snore",
       "category": "story",
@@ -2418,37 +2388,6 @@
       "username": "D.jones",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/elephant-trumpet.mp3"
-    },
-    {
-      "id": "monkey-chatter",
-      "label": "Monkey chatter",
-      "category": "animals",
-      "description": "A short, cheeky burst of monkey 'ooh-ooh' chatter.",
-      "keywords": [
-        "monkey",
-        "chatter",
-        "ape",
-        "chimp",
-        "jungle"
-      ],
-      "search_query": "monkey chatter",
-      "preferred_tags": [
-        "monkey",
-        "chatter"
-      ],
-      "min_duration": 0.5,
-      "max_duration": 4.0,
-      "freesound_id": 41382,
-      "freesound_url": "https://freesound.org/s/41382/",
-      "preview_url": "https://cdn.freesound.org/previews/41/41382_14771-hq.mp3",
-      "download_url": "https://freesound.org/apiv2/sounds/41382/download/",
-      "license": "https://creativecommons.org/licenses/by/4.0/",
-      "duration": 3.52975,
-      "avg_rating": 4.28,
-      "num_downloads": 16301,
-      "username": "sandyrb",
-      "status": "pending",
-      "preview_path": "assets/sfx_catalog/previews/monkey-chatter.mp3"
     },
     {
       "id": "bear-growl",
