@@ -58,14 +58,8 @@ def _settings() -> Settings:
     )
 
 
-def _client(xai, freesound) -> tuple[TestClient, MemoryRecordingStore]:
-    store = MemoryRecordingStore()
-    app = create_app(
-        settings=_settings(),
-        xai_client=xai,
-        freesound_client=freesound,
-        store=store,
-    )
+def _client(xai, freesound, deepgram=None) -> tuple[TestClient, MemoryRecordingStore]:
+    app, store = _app(xai, freesound, deepgram)
     return TestClient(app), store
 
 
@@ -79,6 +73,33 @@ def _payload(**extra) -> dict:
     }
     body.update(extra)
     return body
+
+
+class FakeDeepgram:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+        self.urls: list[str] = []
+        self.audio: list[tuple[int, str]] = []
+
+    def transcribe_url(self, url: str) -> dict:
+        self.urls.append(url)
+        return self.payload
+
+    def transcribe_bytes(self, audio: bytes, content_type: str) -> dict:
+        self.audio.append((len(audio), content_type))
+        return self.payload
+
+
+def _app(xai, freesound, deepgram=None):
+    store = MemoryRecordingStore()
+    app = create_app(
+        settings=_settings(),
+        xai_client=xai,
+        freesound_client=freesound,
+        store=store,
+        deepgram_client=deepgram,
+    )
+    return app, store
 
 
 def test_health():
@@ -253,3 +274,62 @@ def test_freesound_rate_limit_on_every_cue_is_429():
         assert response.status_code == 429
         recording_id = response.json()["detail"]["recording_id"]
         assert client.get(f"/stories/{recording_id}").json()["status"] == "failed"
+
+
+def test_transcribe_url_returns_word_timestamps():
+    deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
+    client, _store = _client(FakeXai([]), FakeFreeSound(), deepgram)
+    with client:
+        response = client.post("/stories/transcribe", json={"url": "https://example.test/story.wav"})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["transcript_text"].startswith("Once upon a time")
+        assert body["duration_seconds"] == 8.5
+        rain = next(word for word in body["words"] if word["word"] == "rain")
+        assert rain["start"] == 1.28
+        assert rain["end"] == 1.7
+        assert body["segments"][0]["end"] == 2.6
+        assert body["deepgram"]["metadata"]["duration"] == 8.5
+    assert deepgram.urls == ["https://example.test/story.wav"]
+
+
+def test_process_audio_transcribes_then_stores_sfx():
+    deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
+    xai = FakeXai(
+        [SfxCue(query="gentle rain ambience", description="rain", start=1.28, end=2.6)]
+    )
+    client, store = _client(xai, FakeFreeSound(), deepgram)
+    with client:
+        response = client.post(
+            "/stories/process-audio",
+            json={
+                "url": "https://example.test/story.wav",
+                "story_id": "story-9",
+                "title": "From audio",
+                "narrator": "Grandpa",
+            },
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["story_id"] == "story-9"
+        assert body["title"] == "From audio"
+        assert body["source_audio_url"] == "https://example.test/story.wav"
+        assert body["cues"][0]["start_ms"] == 1280
+        assert body["status"] == "ready"
+        assert f"{body['id']}/sfx.mp3" in store.files
+    assert deepgram.urls == ["https://example.test/story.wav"]
+    assert xai.calls == 1
+
+
+def test_transcribe_multipart_audio_uses_bytes():
+    deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
+    client, _store = _client(FakeXai([]), FakeFreeSound(), deepgram)
+    with client:
+        response = client.post(
+            "/stories/transcribe",
+            files={"audio": ("story.wav", b"RIFFfake-wav", "audio/wav")},
+            data={"story_id": "ignored-for-transcribe"},
+        )
+        assert response.status_code == 200
+        assert response.json()["words"][0]["word"] == "Once"
+    assert deepgram.audio == [(len(b"RIFFfake-wav"), "audio/wav")]

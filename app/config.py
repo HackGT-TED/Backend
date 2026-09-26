@@ -33,9 +33,11 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_sfx_bucket: str = "story-sfx"
 
-    # Direct transcription is added alongside the JSON process path.
+    # Prerecorded transcription: POST {base}/v1/listen.
+    # https://developers.deepgram.com/docs/pre-recorded-audio
     deepgram_api_key: str = ""
-    deepgram_model: str = "nova-2"
+    deepgram_base_url: str = "https://api.deepgram.com"
+    deepgram_model: str = "nova-3"
     deepgram_language: str = "en"
 
     cors_origins: str = "*"

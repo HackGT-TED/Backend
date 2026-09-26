@@ -2,10 +2,11 @@
 
 Grandparents record a story for a child. Deepgram turns that recording into JSON with word and segment timestamps. This service asks xAI where the sound effects should go, downloads matching clips from FreeSound, and mixes an **SFX-only MP3** aligned to those timestamps. The grandparents' web app and the kids' app load the stored recording and the MP3.
 
-Clients can send Deepgram JSON they already have. Processing is synchronous: `POST /stories/process` finishes the mix before it responds. The MP3 is mixed in a temporary directory and uploaded to Supabase Storage. Metadata lives in a Supabase Postgres table. There is no local database.
+Audio can be transcribed here with Deepgram, or the client can send Deepgram JSON it already fetched. Processing is synchronous: the mix finishes before the response. The MP3 is mixed in a temporary directory and uploaded to Supabase Storage. Metadata lives in a Supabase Postgres table. There is no local database.
 
 ```
-Deepgram JSON
+audio URL or bytes -> Deepgram POST /v1/listen
+  or Deepgram JSON the client already has
   -> transcript text + word/segment timestamps
   -> xAI chat completions (structured SFX cues)
   -> FreeSound text search + preview MP3 per cue
@@ -61,8 +62,9 @@ The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and 
 | `SUPABASE_URL` | to store stories | empty | Project URL, `https://<ref>.supabase.co`. |
 | `SUPABASE_SERVICE_ROLE_KEY` | to store stories | empty | Server-side key. Bypasses RLS. Never send it to a browser. |
 | `SUPABASE_SFX_BUCKET` | no | `story-sfx` | Public Storage bucket for SFX MP3s. |
-| `DEEPGRAM_API_KEY` | to transcribe audio | empty | Used when a route calls Deepgram. JSON process does not need it. |
-| `DEEPGRAM_MODEL` | no | `nova-2` | Prerecorded model id. |
+| `DEEPGRAM_API_KEY` | to transcribe audio | empty | `Authorization: Token` for `POST /v1/listen`. JSON process does not need it. |
+| `DEEPGRAM_BASE_URL` | no | `https://api.deepgram.com` | Listen API host. |
+| `DEEPGRAM_MODEL` | no | `nova-3` | Prerecorded model id. |
 | `DEEPGRAM_LANGUAGE` | no | `en` | Language hint passed to Deepgram. |
 | `CORS_ORIGINS` | no | `*` | Comma-separated browser origins for the web and kids apps. |
 | `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for xAI and FreeSound. Raise this if `grok-4.7` reasoning runs long. |
@@ -72,6 +74,18 @@ A missing `XAI_API_KEY`, `FREESOUND_API_KEY`, or Supabase key raises before any 
 `SUPABASE_ANON_KEY` is not used. Browser and kids apps should call this API and then load `sfx_url`. That URL is the public object URL for bucket `story-sfx`.
 
 ## API
+
+### `POST /stories/transcribe`
+
+Transcribe audio and return the normalized transcript. Does not mix sound effects.
+
+JSON body: `{"url": "https://.../story.wav"}`. Or multipart form data with an `audio` file (25 MB max). The server calls `POST https://api.deepgram.com/v1/listen` with `model=nova-3` (override with `DEEPGRAM_MODEL`), `language`, `smart_format`, `punctuate`, `utterances`, and `paragraphs`. Auth is `Authorization: Token $DEEPGRAM_API_KEY`.
+
+The response includes `transcript_text`, `duration_seconds`, `words` (`word`, `start`, `end`), `segments`, and the raw `deepgram` document.
+
+### `POST /stories/process-audio`
+
+Same audio input as `/stories/transcribe`, plus optional `story_id`, `title`, `narrator`, and `source_audio_url`. When the body is JSON, `url` is stored as `source_audio_url` unless another value is set. The handler transcribes, then runs the same SFX pipeline as `/stories/process`.
 
 ### `POST /stories/process`
 
@@ -147,6 +161,17 @@ Example cue after alignment:
 
 Preview MP3s are what this service mixes. Original-quality downloads need OAuth2, which v1 does not implement. HTTP 429 is retried up to three times using `Retry-After` or a short backoff. If every cue is still rate-limited, the request returns **429**. Create a token at <https://freesound.org/apiv2/apply>.
 
+## Deepgram
+
+Direct transcription uses the [prerecorded listen API](https://developers.deepgram.com/docs/pre-recorded-audio):
+
+- `POST {DEEPGRAM_BASE_URL}/v1/listen`
+- `Authorization: Token $DEEPGRAM_API_KEY`
+- Default model `nova-3`
+- Query flags `smart_format`, `punctuate`, `utterances`, and `paragraphs` so the response includes word and segment timestamps
+
+`POST /stories/process` still accepts that JSON without calling Deepgram. Both paths go through the same normalizer.
+
 ## Deepgram JSON
 
 `fixtures/deepgram_sample.json` is a realistic prerecorded response: `metadata.duration`, `results.channels[0].alternatives[0]` (`transcript`, `words` with `start`/`end`/`punctuated_word`, paragraph sentences), and `results.utterances`. Unknown Deepgram fields are ignored.
@@ -177,7 +202,7 @@ The FastAPI app is one Python function. Vercel loads `app` from `app/main.py` vi
    - `XAI_API_KEY`, `XAI_BASE_URL`, `XAI_MODEL`
    - `FREESOUND_API_KEY`, `FREESOUND_BASE_URL`
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SFX_BUCKET`
-   - `DEEPGRAM_API_KEY`, `DEEPGRAM_MODEL`, `DEEPGRAM_LANGUAGE` when audio is transcribed on the server
+   - `DEEPGRAM_API_KEY`, `DEEPGRAM_BASE_URL`, `DEEPGRAM_MODEL`, `DEEPGRAM_LANGUAGE` when audio is transcribed on the server
    - `CORS_ORIGINS` for the web and kids app origins
    - `HTTP_TIMEOUT_SECONDS` if `grok-4.7` needs longer than 60 seconds (the function `maxDuration` must be at least that long)
 4. Deploy. `GET /health` should return `{"status": "ok"}`.
@@ -205,6 +230,7 @@ app/services/xai.py        xAI Chat Completions client
 app/services/freesound.py   search + preview download
 app/services/mixer.py       silence + overlays -> MP3 bytes
 app/services/pipeline.py    wires planning, download, and mix
+app/services/deepgram.py   prerecorded POST /v1/listen
 app/services/store.py       Supabase table + Storage
 app/api/routes.py           /stories and /health
 supabase/schema.sql         recordings table and story-sfx bucket

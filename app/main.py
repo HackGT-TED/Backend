@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.api.routes import router
 from app.config import Settings, get_settings
+from app.services.deepgram import DeepgramClient, HttpDeepgramClient
 from app.services.freesound import FreeSoundClient, HttpFreeSoundClient
 from app.services.store import RecordingStore, SupabaseRecordingStore
 from app.services.xai import HttpXaiClient, XaiClient
@@ -20,7 +21,7 @@ from app.services.xai import HttpXaiClient, XaiClient
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
-    for name in ("xai", "freesound"):
+    for name in ("xai", "freesound", "deepgram"):
         client = getattr(app.state, name, None)
         close = getattr(client, "close", None)
         if callable(close):
@@ -32,6 +33,7 @@ def create_app(
     xai_client: XaiClient | None = None,
     freesound_client: FreeSoundClient | None = None,
     store: RecordingStore | None = None,
+    deepgram_client: DeepgramClient | None = None,
 ) -> FastAPI:
     """Build the API. Persistence is a Supabase client unless a test store is passed."""
 
@@ -46,6 +48,7 @@ def create_app(
     app.state.store = store if store is not None else SupabaseRecordingStore(settings)
     app.state.xai = xai_client or HttpXaiClient(settings)
     app.state.freesound = freesound_client or HttpFreeSoundClient(settings)
+    app.state.deepgram = deepgram_client or HttpDeepgramClient(settings)
 
     app.add_middleware(
         CORSMiddleware,

@@ -50,6 +50,28 @@ class RecordingSummary(BaseModel):
     created_at: datetime
 
 
+class TranscriptWordOut(BaseModel):
+    word: str
+    start: float
+    end: float
+
+
+class TranscriptSegmentOut(BaseModel):
+    text: str
+    start: float
+    end: float
+
+
+class TranscriptOut(BaseModel):
+    """Normalized Deepgram transcript plus the raw listen response."""
+
+    transcript_text: str
+    duration_seconds: float
+    words: list[TranscriptWordOut]
+    segments: list[TranscriptSegmentOut]
+    deepgram: dict[str, Any]
+
+
 class RecordingDetail(RecordingSummary):
     source_audio_url: str | None = None
     transcript_text: str = ""

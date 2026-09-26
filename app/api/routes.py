@@ -7,11 +7,21 @@ from typing import NoReturn
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import ValidationError
 
-from app.schemas.api import CueOut, ProcessStoryRequest, RecordingDetail, RecordingSummary
+from app.schemas.api import (
+    CueOut,
+    ProcessStoryRequest,
+    RecordingDetail,
+    RecordingSummary,
+    TranscriptOut,
+    TranscriptSegmentOut,
+    TranscriptWordOut,
+)
 from app.schemas.deepgram import DeepgramTranscript
 from app.schemas.sfx import SfxCue
+from app.services.deepgram import DeepgramAuthError, DeepgramError, DeepgramNotConfiguredError
 from app.services.freesound import FreeSoundNotConfiguredError, FreeSoundRateLimitError
 from app.services.mixer import AudioMixError
 from app.services.pipeline import run_pipeline
@@ -24,6 +34,8 @@ from app.services.store import (
 from app.services.xai import XaiAuthError, XaiError, XaiNotConfiguredError
 
 router = APIRouter(prefix="/stories", tags=["stories"])
+
+_MAX_AUDIO_BYTES = 25 * 1024 * 1024
 
 
 @router.post("/process", response_model=RecordingDetail, status_code=201)
@@ -101,6 +113,29 @@ def process_story(request: Request, body: ProcessStoryRequest) -> RecordingDetai
     return _detail(record)
 
 
+@router.post("/transcribe", response_model=TranscriptOut)
+async def transcribe_story(request: Request) -> TranscriptOut:
+    """Transcribe an audio URL or uploaded file with Deepgram. Does not mix SFX."""
+
+    raw, _meta = await _transcribe_request(request)
+    return _transcript_out(raw)
+
+
+@router.post("/process-audio", response_model=RecordingDetail, status_code=201)
+async def process_audio(request: Request) -> RecordingDetail:
+    """Transcribe audio with Deepgram, then run the SFX pipeline and store it."""
+
+    raw, meta = await _transcribe_request(request)
+    body = ProcessStoryRequest(
+        story_id=_optional_str(meta.get("story_id")),
+        title=_optional_str(meta.get("title")),
+        narrator=_optional_str(meta.get("narrator")),
+        source_audio_url=_optional_str(meta.get("source_audio_url")) or _optional_str(meta.get("url")),
+        deepgram=raw,
+    )
+    return await run_in_threadpool(process_story, request, body)
+
+
 @router.get("", response_model=list[RecordingSummary])
 def list_stories(request: Request, story_id: str | None = None) -> list[RecordingSummary]:
     try:
@@ -125,6 +160,75 @@ def download_sfx(recording_id: str, request: Request) -> RedirectResponse:
     if record.status != "ready" or not record.sfx_url:
         raise HTTPException(status_code=404, detail="SFX track is not available")
     return RedirectResponse(record.sfx_url, status_code=307)
+
+
+async def _transcribe_request(request: Request) -> tuple[dict, dict]:
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=422, detail="JSON body must be an object")
+        url = payload.get("url") or payload.get("audio_url")
+        if not isinstance(url, str) or not url.strip():
+            raise HTTPException(status_code=422, detail="JSON body must include url")
+        raw = _call_deepgram(lambda: request.app.state.deepgram.transcribe_url(url.strip()))
+        return raw, payload
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        upload = form.get("audio")
+        if upload is None or not hasattr(upload, "read"):
+            raise HTTPException(status_code=422, detail="Multipart body must include an audio file field")
+        data = await upload.read()
+        if not data:
+            raise HTTPException(status_code=422, detail="Audio file was empty")
+        if len(data) > _MAX_AUDIO_BYTES:
+            raise HTTPException(status_code=413, detail="Audio file is larger than 25 MB")
+        mime = getattr(upload, "content_type", None) or "application/octet-stream"
+        raw = _call_deepgram(lambda: request.app.state.deepgram.transcribe_bytes(data, mime))
+        meta = {key: form.get(key) for key in ("story_id", "title", "narrator", "source_audio_url", "url")}
+        return raw, meta
+    raise HTTPException(
+        status_code=422,
+        detail="Send a JSON body with url, or multipart form data with an audio file",
+    )
+
+
+def _call_deepgram(call) -> dict:
+    try:
+        return call()
+    except (DeepgramNotConfiguredError, DeepgramAuthError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except DeepgramError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+def _transcript_out(raw: dict) -> TranscriptOut:
+    try:
+        transcript = DeepgramTranscript.model_validate(raw).normalized()
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=json.loads(exc.json())) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return TranscriptOut(
+        transcript_text=transcript.text,
+        duration_seconds=transcript.duration_seconds,
+        words=[
+            TranscriptWordOut(word=word.display, start=word.start, end=word.end)
+            for word in transcript.words
+        ],
+        segments=[
+            TranscriptSegmentOut(text=segment.text, start=segment.start, end=segment.end)
+            for segment in transcript.segments
+        ],
+        deepgram=raw,
+    )
+
+
+def _optional_str(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _store(request: Request) -> RecordingStore:
