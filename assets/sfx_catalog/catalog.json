@@ -1,7 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "catalog_only": true,
-  "notes": "Fixed picture-book and bedtime-story sound slots. freesound_id and preview_url stay empty until scripts/build_sfx_catalog.py runs with FREESOUND_API_KEY. Story requests may use only these entries.",
+  "notes": "Picture-book and children's-adventure sound slots. Categories: animals, weather, water, forest, home, magic, transport, city, story, time, action, creatures, play. Action cues are cartoon-safe (soft clashes, whooshes, tumbles), not gore. freesound_id and preview_url stay empty until scripts/build_sfx_catalog.py runs with FREESOUND_API_KEY. Story requests may use only these entries.",
   "entries": [
     {
       "id": "dog-bark",
@@ -67,6 +67,35 @@
       "preview_path": null
     },
     {
+      "id": "cat-purr",
+      "label": "Cat purr",
+      "category": "animals",
+      "description": "A close, content cat purr, not a meow.",
+      "keywords": [
+        "purr",
+        "purring",
+        "cat purr"
+      ],
+      "search_query": "cat purr",
+      "preferred_tags": [
+        "cat",
+        "purr"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 4.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "bird-chirp",
       "label": "Bird chirp",
       "category": "animals",
@@ -85,6 +114,37 @@
       ],
       "min_duration": 0.2,
       "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "bird-wings",
+      "label": "Bird wings",
+      "category": "animals",
+      "description": "A small bird taking off, wings only, no chirp.",
+      "keywords": [
+        "wing flap",
+        "bird wings",
+        "flutter",
+        "flapping"
+      ],
+      "search_query": "bird wing flap",
+      "preferred_tags": [
+        "bird",
+        "wings",
+        "flap"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
       "freesound_id": null,
       "freesound_url": null,
       "preview_url": null,
@@ -128,6 +188,125 @@
       "preview_path": null
     },
     {
+      "id": "crow-caw",
+      "label": "Crow caw",
+      "category": "animals",
+      "description": "A single crow caw, not a rooster.",
+      "keywords": [
+        "caw",
+        "crow caw",
+        "raven"
+      ],
+      "search_query": "crow caw",
+      "preferred_tags": [
+        "crow",
+        "caw",
+        "bird"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "seagull-cry",
+      "label": "Seagull cry",
+      "category": "animals",
+      "description": "One or two seagull calls at the shore.",
+      "keywords": [
+        "seagull",
+        "gull",
+        "seagull cry"
+      ],
+      "search_query": "seagull cry",
+      "preferred_tags": [
+        "seagull",
+        "gull",
+        "bird"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "woodpecker-tap",
+      "label": "Woodpecker tap",
+      "category": "animals",
+      "description": "A short woodpecker drum on a tree.",
+      "keywords": [
+        "woodpecker",
+        "peck",
+        "tapping tree"
+      ],
+      "search_query": "woodpecker peck",
+      "preferred_tags": [
+        "woodpecker",
+        "bird"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "pigeon-coo",
+      "label": "Pigeon coo",
+      "category": "animals",
+      "description": "A soft pigeon coo for a town square.",
+      "keywords": [
+        "pigeon",
+        "coo",
+        "cooing"
+      ],
+      "search_query": "pigeon coo",
+      "preferred_tags": [
+        "pigeon",
+        "coo",
+        "bird"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "horse-neigh",
       "label": "Horse neigh",
       "category": "animals",
@@ -145,6 +324,38 @@
       ],
       "min_duration": 0.3,
       "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "horse-hooves",
+      "label": "Horse hooves",
+      "category": "animals",
+      "description": "A few hoofbeats, clip-clop, not a neigh.",
+      "keywords": [
+        "hoof",
+        "hooves",
+        "clip clop",
+        "gallop",
+        "horse hooves"
+      ],
+      "search_query": "horse hoof gallop",
+      "preferred_tags": [
+        "horse",
+        "hooves",
+        "gallop"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
       "freesound_id": null,
       "freesound_url": null,
       "preview_url": null,
@@ -221,11 +432,10 @@
       "id": "lion-roar",
       "label": "Lion roar",
       "category": "animals",
-      "description": "A short, storybook lion roar rather than a long scream.",
+      "description": "A short storybook lion roar, a single burst.",
       "keywords": [
         "lion",
-        "roar",
-        "growl"
+        "lion roar"
       ],
       "search_query": "lion roar short",
       "preferred_tags": [
@@ -364,9 +574,268 @@
       "preview_path": null
     },
     {
+      "id": "chicken-cluck",
+      "label": "Chicken cluck",
+      "category": "animals",
+      "description": "A hen clucking, not a morning rooster crow.",
+      "keywords": [
+        "chicken",
+        "hen",
+        "cluck",
+        "clucking"
+      ],
+      "search_query": "chicken cluck",
+      "preferred_tags": [
+        "chicken",
+        "cluck"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "pig-oink",
+      "label": "Pig oink",
+      "category": "animals",
+      "description": "A short pig oink.",
+      "keywords": [
+        "pig",
+        "oink",
+        "piglet"
+      ],
+      "search_query": "pig oink",
+      "preferred_tags": [
+        "pig",
+        "oink"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "wolf-howl",
+      "label": "Wolf howl",
+      "category": "animals",
+      "description": "One distant wolf howl for a night page, not a close snarl.",
+      "keywords": [
+        "wolf",
+        "howl",
+        "howling",
+        "distant howl"
+      ],
+      "search_query": "distant wolf howl",
+      "preferred_tags": [
+        "wolf",
+        "howl"
+      ],
+      "min_duration": 0.8,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "elephant-trumpet",
+      "label": "Elephant trumpet",
+      "category": "animals",
+      "description": "A short elephant trumpet.",
+      "keywords": [
+        "elephant",
+        "trumpet",
+        "trunk"
+      ],
+      "search_query": "elephant trumpet",
+      "preferred_tags": [
+        "elephant"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "monkey-chatter",
+      "label": "Monkey chatter",
+      "category": "animals",
+      "description": "A short burst of monkey chatter.",
+      "keywords": [
+        "monkey",
+        "chatter",
+        "ape"
+      ],
+      "search_query": "monkey chatter",
+      "preferred_tags": [
+        "monkey"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "snake-hiss",
+      "label": "Snake hiss",
+      "category": "animals",
+      "description": "A brief cartoon snake hiss.",
+      "keywords": [
+        "snake",
+        "hiss",
+        "hissing"
+      ],
+      "search_query": "snake hiss short",
+      "preferred_tags": [
+        "snake",
+        "hiss"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "bear-growl",
+      "label": "Bear growl",
+      "category": "animals",
+      "description": "A short muffled bear growl for a picture-book bear.",
+      "keywords": [
+        "bear",
+        "bear growl",
+        "grizzly"
+      ],
+      "search_query": "bear growl short",
+      "preferred_tags": [
+        "bear",
+        "growl"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "donkey-bray",
+      "label": "Donkey bray",
+      "category": "animals",
+      "description": "A short donkey bray.",
+      "keywords": [
+        "donkey",
+        "bray",
+        "mule"
+      ],
+      "search_query": "donkey bray",
+      "preferred_tags": [
+        "donkey"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "bat-squeak",
+      "label": "Bat squeak",
+      "category": "animals",
+      "description": "Tiny bat squeaks, not a horror sting.",
+      "keywords": [
+        "bat",
+        "bat squeak",
+        "flying fox"
+      ],
+      "search_query": "bat squeak",
+      "preferred_tags": [
+        "bat"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "rain",
       "label": "Rain",
-      "category": "nature",
+      "category": "weather",
       "description": "Gentle rainfall for a rainy page, not rain hitting a window.",
       "keywords": [
         "rain",
@@ -395,15 +864,46 @@
       "preview_path": null
     },
     {
+      "id": "rain-window",
+      "label": "Rain on window",
+      "category": "weather",
+      "description": "Raindrops tapping a window, distinct from open rainfall.",
+      "keywords": [
+        "rain window",
+        "raindrops",
+        "window pane",
+        "rain on window"
+      ],
+      "search_query": "rain on window drops",
+      "preferred_tags": [
+        "rain",
+        "window"
+      ],
+      "min_duration": 1.0,
+      "max_duration": 8.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "wind",
       "label": "Wind",
-      "category": "nature",
+      "category": "weather",
       "description": "A soft breeze through an outdoor scene.",
       "keywords": [
         "wind",
         "breeze",
-        "gust",
-        "blowing"
+        "blowing",
+        "soft wind",
+        "gentle breeze"
       ],
       "search_query": "soft wind breeze",
       "preferred_tags": [
@@ -425,9 +925,38 @@
       "preview_path": null
     },
     {
+      "id": "wind-gust",
+      "label": "Wind gust",
+      "category": "weather",
+      "description": "One short gust, not a long breeze bed.",
+      "keywords": [
+        "gust",
+        "wind gust",
+        "whoosh wind"
+      ],
+      "search_query": "wind gust short",
+      "preferred_tags": [
+        "wind",
+        "gust"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "thunder",
       "label": "Thunder",
-      "category": "nature",
+      "category": "weather",
       "description": "Distant soft thunder, not a sharp crack next to the listener.",
       "keywords": [
         "thunder",
@@ -454,16 +983,47 @@
       "preview_path": null
     },
     {
+      "id": "snow-crunch",
+      "label": "Snow crunch",
+      "category": "weather",
+      "description": "Footsteps crunching in snow.",
+      "keywords": [
+        "snow",
+        "snow crunch",
+        "footsteps snow",
+        "walking in snow"
+      ],
+      "search_query": "footsteps snow crunch",
+      "preferred_tags": [
+        "snow",
+        "crunch",
+        "footsteps"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "stream",
       "label": "Stream",
-      "category": "nature",
+      "category": "water",
       "description": "A small brook or stream.",
       "keywords": [
         "stream",
         "brook",
         "creek",
         "babbling",
-        "water"
+        "babbling brook"
       ],
       "search_query": "babbling brook stream",
       "preferred_tags": [
@@ -488,7 +1048,7 @@
     {
       "id": "ocean-waves",
       "label": "Ocean waves",
-      "category": "nature",
+      "category": "water",
       "description": "Gentle waves on a shore.",
       "keywords": [
         "ocean",
@@ -519,10 +1079,246 @@
       "preview_path": null
     },
     {
+      "id": "waterfall",
+      "label": "Waterfall",
+      "category": "water",
+      "description": "A small waterfall, a short bed rather than a canyon roar.",
+      "keywords": [
+        "waterfall",
+        "cascade",
+        "falls"
+      ],
+      "search_query": "small waterfall",
+      "preferred_tags": [
+        "waterfall",
+        "water"
+      ],
+      "min_duration": 1.5,
+      "max_duration": 8.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "water-drip",
+      "label": "Water drip",
+      "category": "water",
+      "description": "Single water drips, a faucet or a cave, not rainfall.",
+      "keywords": [
+        "drip",
+        "dripping",
+        "water drip",
+        "faucet drip"
+      ],
+      "search_query": "water drip single",
+      "preferred_tags": [
+        "drip",
+        "water"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "splash",
+      "label": "Splash",
+      "category": "water",
+      "description": "Someone jumping into water, one cartoon splash.",
+      "keywords": [
+        "splash",
+        "water splash",
+        "jump splash"
+      ],
+      "search_query": "water splash jump",
+      "preferred_tags": [
+        "splash",
+        "water"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "puddle-step",
+      "label": "Puddle step",
+      "category": "water",
+      "description": "A step into a puddle.",
+      "keywords": [
+        "puddle",
+        "puddle splash",
+        "stepping in water"
+      ],
+      "search_query": "puddle splash step",
+      "preferred_tags": [
+        "puddle",
+        "splash"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "paddle-splash",
+      "label": "Paddle splash",
+      "category": "water",
+      "description": "A canoe or rowboat paddle dipping in water.",
+      "keywords": [
+        "paddle",
+        "oar",
+        "canoe",
+        "rowing"
+      ],
+      "search_query": "canoe paddle splash",
+      "preferred_tags": [
+        "paddle",
+        "water",
+        "boat"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "bubble-pop",
+      "label": "Bubble pop",
+      "category": "water",
+      "description": "Soap bubbles popping, not a magic cauldron.",
+      "keywords": [
+        "bubble",
+        "bubbles",
+        "soap bubble",
+        "bubble pop"
+      ],
+      "search_query": "soap bubble pop",
+      "preferred_tags": [
+        "bubble",
+        "pop"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "underwater-bubbles",
+      "label": "Underwater bubbles",
+      "category": "water",
+      "description": "A short trail of bubbles underwater.",
+      "keywords": [
+        "underwater",
+        "underwater bubbles",
+        "scuba bubbles"
+      ],
+      "search_query": "underwater bubbles",
+      "preferred_tags": [
+        "underwater",
+        "bubbles"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "stone-skip",
+      "label": "Stone skip",
+      "category": "water",
+      "description": "A stone skipping across a pond.",
+      "keywords": [
+        "skipping stone",
+        "stone skip",
+        "pebble water"
+      ],
+      "search_query": "stone skipping water",
+      "preferred_tags": [
+        "stone",
+        "water"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "leaves-rustle",
       "label": "Leaves rustle",
-      "category": "nature",
-      "description": "Dry leaves moving in a light wind.",
+      "category": "forest",
+      "description": "Dry leaves moving in a light wind, not footsteps.",
       "keywords": [
         "leaves",
         "leaf",
@@ -551,19 +1347,18 @@
     {
       "id": "campfire",
       "label": "Campfire",
-      "category": "nature",
-      "description": "Wood crackling in a small campfire.",
+      "category": "forest",
+      "description": "Wood crackling in a small outdoor campfire, not a hearth.",
       "keywords": [
         "campfire",
-        "fire",
-        "crackle",
-        "crackling",
-        "bonfire"
+        "bonfire",
+        "campfire crackle"
       ],
       "search_query": "campfire crackle",
       "preferred_tags": [
         "fire",
-        "crackle"
+        "crackle",
+        "campfire"
       ],
       "min_duration": 1.0,
       "max_duration": 8.0,
@@ -580,22 +1375,82 @@
       "preview_path": null
     },
     {
-      "id": "crickets",
-      "label": "Crickets",
-      "category": "nature",
-      "description": "Night crickets, a short bed rather than a long field recording.",
+      "id": "twig-snap",
+      "label": "Twig snap",
+      "category": "forest",
+      "description": "A dry twig snapping under a foot.",
       "keywords": [
-        "cricket",
-        "crickets",
-        "night cricket"
+        "twig",
+        "twig snap",
+        "branch snap"
       ],
-      "search_query": "night crickets",
+      "search_query": "twig snap footstep",
       "preferred_tags": [
-        "cricket",
-        "night"
+        "twig",
+        "snap",
+        "wood"
       ],
-      "min_duration": 1.5,
-      "max_duration": 8.0,
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "branch-creak",
+      "label": "Branch creak",
+      "category": "forest",
+      "description": "A tree branch creaking, not a door.",
+      "keywords": [
+        "branch",
+        "tree branch",
+        "limb creak"
+      ],
+      "search_query": "tree branch creak",
+      "preferred_tags": [
+        "branch",
+        "tree",
+        "creak"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "footsteps-leaves",
+      "label": "Footsteps in leaves",
+      "category": "forest",
+      "description": "Walking through dry leaves on a forest path.",
+      "keywords": [
+        "footsteps leaves",
+        "walking through leaves",
+        "leaf crunch steps"
+      ],
+      "search_query": "footsteps dry leaves",
+      "preferred_tags": [
+        "footsteps",
+        "leaves"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
       "freesound_id": null,
       "freesound_url": null,
       "preview_url": null,
@@ -647,12 +1502,10 @@
       "category": "home",
       "description": "A door shutting, without a long creak.",
       "keywords": [
-        "door",
-        "close",
+        "door close",
         "closed",
         "shut",
-        "latch",
-        "slam"
+        "latch"
       ],
       "search_query": "door close shut",
       "preferred_tags": [
@@ -660,6 +1513,122 @@
         "close"
       ],
       "min_duration": 0.2,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "door-knock",
+      "label": "Door knock",
+      "category": "home",
+      "description": "A few knocks on a wooden door.",
+      "keywords": [
+        "knock",
+        "knocking",
+        "door knock"
+      ],
+      "search_query": "door knock",
+      "preferred_tags": [
+        "knock",
+        "door"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "doorbell",
+      "label": "Doorbell",
+      "category": "home",
+      "description": "A house doorbell, not a shop bell or a bicycle bell.",
+      "keywords": [
+        "doorbell",
+        "ding dong",
+        "house doorbell"
+      ],
+      "search_query": "doorbell ring",
+      "preferred_tags": [
+        "doorbell",
+        "bell"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "window-open",
+      "label": "Window open",
+      "category": "home",
+      "description": "A sash window sliding open.",
+      "keywords": [
+        "window open",
+        "sash",
+        "window slide"
+      ],
+      "search_query": "window open sash",
+      "preferred_tags": [
+        "window"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "key-turn",
+      "label": "Key turn",
+      "category": "home",
+      "description": "A key turning in a lock.",
+      "keywords": [
+        "key",
+        "lock",
+        "key turn",
+        "unlock"
+      ],
+      "search_query": "key turning lock",
+      "preferred_tags": [
+        "key",
+        "lock"
+      ],
+      "min_duration": 0.3,
       "max_duration": 3.0,
       "freesound_id": null,
       "freesound_url": null,
@@ -711,16 +1680,45 @@
       "category": "home",
       "description": "Quiet footsteps on carpet or tiptoe steps.",
       "keywords": [
-        "footstep",
-        "footsteps",
         "tiptoe",
         "carpet",
-        "soft footstep"
+        "soft footsteps",
+        "sneaking"
       ],
       "search_query": "soft footsteps carpet",
       "preferred_tags": [
         "footsteps",
         "carpet"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "stairs-creak",
+      "label": "Stairs creak",
+      "category": "home",
+      "description": "A few creaking steps on wooden stairs.",
+      "keywords": [
+        "stairs",
+        "staircase",
+        "stair creak",
+        "creaking stairs"
+      ],
+      "search_query": "creaking stairs",
+      "preferred_tags": [
+        "stairs",
+        "creak"
       ],
       "min_duration": 0.5,
       "max_duration": 5.0,
@@ -767,6 +1765,35 @@
       "preview_path": null
     },
     {
+      "id": "clock-chime",
+      "label": "Clock chime",
+      "category": "home",
+      "description": "A mantel or grandfather clock striking the hour.",
+      "keywords": [
+        "grandfather clock",
+        "hour chime",
+        "clock chime"
+      ],
+      "search_query": "grandfather clock chime",
+      "preferred_tags": [
+        "clock",
+        "chime"
+      ],
+      "min_duration": 0.8,
+      "max_duration": 6.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "kettle-whistle",
       "label": "Kettle whistle",
       "category": "home",
@@ -774,7 +1801,7 @@
       "keywords": [
         "kettle",
         "whistle",
-        "tea",
+        "tea kettle",
         "boiling"
       ],
       "search_query": "kettle whistle",
@@ -797,6 +1824,96 @@
       "preview_path": null
     },
     {
+      "id": "pouring-tea",
+      "label": "Pouring tea",
+      "category": "home",
+      "description": "Liquid pouring into a cup.",
+      "keywords": [
+        "pour",
+        "pouring",
+        "tea pour",
+        "pouring cup"
+      ],
+      "search_query": "tea pouring cup",
+      "preferred_tags": [
+        "pour",
+        "liquid"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "dishes-clink",
+      "label": "Dishes clink",
+      "category": "home",
+      "description": "A teacup or a few dishes set down gently.",
+      "keywords": [
+        "dishes",
+        "teacup",
+        "cup clink",
+        "crockery"
+      ],
+      "search_query": "dishes clink",
+      "preferred_tags": [
+        "dishes",
+        "cup"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "fireplace-crackle",
+      "label": "Fireplace crackle",
+      "category": "home",
+      "description": "An indoor hearth crackling, not an outdoor campfire.",
+      "keywords": [
+        "fireplace",
+        "hearth",
+        "fireplace crackle"
+      ],
+      "search_query": "fireplace crackle",
+      "preferred_tags": [
+        "fireplace",
+        "fire",
+        "crackle"
+      ],
+      "min_duration": 1.0,
+      "max_duration": 8.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "pages-turning",
       "label": "Pages turning",
       "category": "home",
@@ -806,7 +1923,8 @@
         "pages",
         "turning",
         "paper",
-        "book"
+        "book",
+        "page turn"
       ],
       "search_query": "book page turn",
       "preferred_tags": [
@@ -836,7 +1954,6 @@
       "keywords": [
         "blanket",
         "cloth",
-        "rustle",
         "fabric",
         "bed"
       ],
@@ -860,13 +1977,242 @@
       "preview_path": null
     },
     {
+      "id": "rocking-chair",
+      "label": "Rocking chair",
+      "category": "home",
+      "description": "A wooden rocking chair in a quiet room.",
+      "keywords": [
+        "rocking chair",
+        "rocker"
+      ],
+      "search_query": "rocking chair creak",
+      "preferred_tags": [
+        "chair",
+        "creak"
+      ],
+      "min_duration": 0.8,
+      "max_duration": 6.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "wind-chimes",
+      "label": "Wind chimes",
+      "category": "home",
+      "description": "A short phrase of porch wind chimes.",
+      "keywords": [
+        "wind chimes",
+        "chime porch"
+      ],
+      "search_query": "wind chimes",
+      "preferred_tags": [
+        "windchime",
+        "chime"
+      ],
+      "min_duration": 0.8,
+      "max_duration": 6.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "toy-squeak",
+      "label": "Toy squeak",
+      "category": "home",
+      "description": "A rubber toy squeak.",
+      "keywords": [
+        "squeaky toy",
+        "toy squeak",
+        "rubber toy"
+      ],
+      "search_query": "squeaky toy",
+      "preferred_tags": [
+        "toy",
+        "squeak"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "match-strike",
+      "label": "Match strike",
+      "category": "home",
+      "description": "A match strike for lighting a candle.",
+      "keywords": [
+        "match",
+        "match strike",
+        "candle lighting"
+      ],
+      "search_query": "match strike",
+      "preferred_tags": [
+        "match",
+        "strike"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "popcorn-pop",
+      "label": "Popcorn pop",
+      "category": "home",
+      "description": "A few popcorn pops.",
+      "keywords": [
+        "popcorn",
+        "popping corn"
+      ],
+      "search_query": "popcorn popping",
+      "preferred_tags": [
+        "popcorn",
+        "pop"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 4.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "telephone-ring",
+      "label": "Telephone ring",
+      "category": "home",
+      "description": "A short vintage telephone ring.",
+      "keywords": [
+        "telephone",
+        "phone ring",
+        "vintage phone"
+      ],
+      "search_query": "vintage telephone ring",
+      "preferred_tags": [
+        "telephone",
+        "ring"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "hammer-tap",
+      "label": "Hammer tap",
+      "category": "home",
+      "description": "A few gentle hammer taps on wood, as in a craft project.",
+      "keywords": [
+        "hammer",
+        "hammer tap",
+        "tapping wood"
+      ],
+      "search_query": "hammer tap wood",
+      "preferred_tags": [
+        "hammer",
+        "wood"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "camera-shutter",
+      "label": "Camera shutter",
+      "category": "home",
+      "description": "A single camera shutter click.",
+      "keywords": [
+        "camera",
+        "shutter",
+        "photo click"
+      ],
+      "search_query": "camera shutter click",
+      "preferred_tags": [
+        "camera",
+        "shutter"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "magic-chime",
       "label": "Magic chime",
       "category": "magic",
-      "description": "A bright magical chime or sparkle.",
+      "description": "A bright magical chime when a spell resolves.",
       "keywords": [
         "magic",
-        "chime",
+        "magic chime",
         "sparkle",
         "magical",
         "spell"
@@ -892,80 +2238,23 @@
       "preview_path": null
     },
     {
-      "id": "twinkle",
-      "label": "Twinkle",
+      "id": "fairy-dust",
+      "label": "Fairy dust",
       "category": "magic",
-      "description": "A short twinkle, like a star appearing.",
+      "description": "A light shimmer of fairy dust sprinkled in the air.",
       "keywords": [
-        "twinkle",
-        "sparkle",
-        "star",
-        "glitter"
+        "fairy dust",
+        "shimmer",
+        "sparkle magic",
+        "pixie dust"
       ],
-      "search_query": "twinkle sparkle star",
+      "search_query": "fairy dust shimmer",
       "preferred_tags": [
-        "twinkle",
+        "fairy",
+        "magic",
         "sparkle"
       ],
-      "min_duration": 0.2,
-      "max_duration": 3.5,
-      "freesound_id": null,
-      "freesound_url": null,
-      "preview_url": null,
-      "download_url": null,
-      "license": null,
-      "duration": null,
-      "avg_rating": null,
-      "num_downloads": null,
-      "username": null,
-      "status": "empty",
-      "preview_path": null
-    },
-    {
-      "id": "whoosh",
-      "label": "Whoosh",
-      "category": "magic",
-      "description": "A soft whoosh for something flying past.",
-      "keywords": [
-        "whoosh",
-        "swoosh",
-        "swish",
-        "fly"
-      ],
-      "search_query": "soft whoosh",
-      "preferred_tags": [
-        "whoosh"
-      ],
-      "min_duration": 0.2,
-      "max_duration": 3.0,
-      "freesound_id": null,
-      "freesound_url": null,
-      "preview_url": null,
-      "download_url": null,
-      "license": null,
-      "duration": null,
-      "avg_rating": null,
-      "num_downloads": null,
-      "username": null,
-      "status": "empty",
-      "preview_path": null
-    },
-    {
-      "id": "soft-bell",
-      "label": "Soft bell",
-      "category": "magic",
-      "description": "A single soft bell, not a bicycle bell.",
-      "keywords": [
-        "bell",
-        "ding",
-        "chime bell",
-        "handbell"
-      ],
-      "search_query": "soft hand bell single",
-      "preferred_tags": [
-        "bell"
-      ],
-      "min_duration": 0.3,
+      "min_duration": 0.4,
       "max_duration": 4.0,
       "freesound_id": null,
       "freesound_url": null,
@@ -1008,24 +2297,168 @@
       "preview_path": null
     },
     {
-      "id": "fairy-dust",
-      "label": "Fairy dust",
+      "id": "soft-bell",
+      "label": "Soft bell",
       "category": "magic",
-      "description": "A light shimmer of fairy dust.",
+      "description": "A single soft handbell, not a bicycle bell or a clock.",
       "keywords": [
-        "fairy",
-        "dust",
-        "shimmer",
-        "sparkle magic"
+        "handbell",
+        "soft bell",
+        "ding"
       ],
-      "search_query": "fairy dust shimmer",
+      "search_query": "soft hand bell single",
       "preferred_tags": [
-        "fairy",
-        "magic",
-        "sparkle"
+        "bell"
       ],
-      "min_duration": 0.4,
+      "min_duration": 0.3,
       "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "spell-whoosh",
+      "label": "Spell whoosh",
+      "category": "magic",
+      "description": "A magical whoosh as a spell appears or vanishes.",
+      "keywords": [
+        "spell whoosh",
+        "magic whoosh",
+        "spell cast"
+      ],
+      "search_query": "magic spell whoosh",
+      "preferred_tags": [
+        "magic",
+        "whoosh",
+        "spell"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "potion-bubble",
+      "label": "Potion bubble",
+      "category": "magic",
+      "description": "A bubbling cauldron or potion, not soap bubbles.",
+      "keywords": [
+        "potion",
+        "cauldron",
+        "bubbling potion"
+      ],
+      "search_query": "cauldron bubble potion",
+      "preferred_tags": [
+        "potion",
+        "bubble",
+        "magic"
+      ],
+      "min_duration": 0.8,
+      "max_duration": 6.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "teleport-pop",
+      "label": "Teleport pop",
+      "category": "magic",
+      "description": "A soft pop as someone appears or disappears.",
+      "keywords": [
+        "teleport",
+        "magic pop",
+        "appear pop"
+      ],
+      "search_query": "magic teleport pop",
+      "preferred_tags": [
+        "magic",
+        "pop"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "sparkler-crackle",
+      "label": "Sparkler crackle",
+      "category": "magic",
+      "description": "A gentle sparkler crackle for a celebration, not fireworks.",
+      "keywords": [
+        "sparkler",
+        "sparkler crackle"
+      ],
+      "search_query": "sparkler crackle",
+      "preferred_tags": [
+        "sparkler",
+        "crackle"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "magic-poof",
+      "label": "Magic poof",
+      "category": "magic",
+      "description": "A cartoon puff of magical smoke.",
+      "keywords": [
+        "poof",
+        "magic poof",
+        "puff smoke"
+      ],
+      "search_query": "cartoon magic poof",
+      "preferred_tags": [
+        "magic",
+        "poof",
+        "cartoon"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
       "freesound_id": null,
       "freesound_url": null,
       "preview_url": null,
@@ -1045,9 +2478,9 @@
       "description": "A short train whistle.",
       "keywords": [
         "train",
-        "whistle",
+        "train whistle",
         "locomotive",
-        "steam"
+        "steam whistle"
       ],
       "search_query": "train whistle",
       "preferred_tags": [
@@ -1069,6 +2502,35 @@
       "preview_path": null
     },
     {
+      "id": "train-chug",
+      "label": "Train chug",
+      "category": "transport",
+      "description": "A short steam-train chug, not the whistle.",
+      "keywords": [
+        "train chug",
+        "locomotive chug",
+        "steam train"
+      ],
+      "search_query": "steam train chug",
+      "preferred_tags": [
+        "train",
+        "steam"
+      ],
+      "min_duration": 1.0,
+      "max_duration": 6.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "bicycle-bell",
       "label": "Bicycle bell",
       "category": "transport",
@@ -1076,7 +2538,7 @@
       "keywords": [
         "bicycle",
         "bike",
-        "bell",
+        "bicycle bell",
         "cycle"
       ],
       "search_query": "bicycle bell ring",
@@ -1099,9 +2561,185 @@
       "preview_path": null
     },
     {
+      "id": "boat-horn",
+      "label": "Boat horn",
+      "category": "transport",
+      "description": "A distant boat or ship horn.",
+      "keywords": [
+        "boat",
+        "ship",
+        "boat horn",
+        "foghorn"
+      ],
+      "search_query": "distant boat horn",
+      "preferred_tags": [
+        "boat",
+        "horn"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "wagon-wheels",
+      "label": "Wagon wheels",
+      "category": "transport",
+      "description": "Wooden cart or wagon wheels rolling.",
+      "keywords": [
+        "wagon",
+        "cart wheels",
+        "wagon wheels"
+      ],
+      "search_query": "wagon wheels creak",
+      "preferred_tags": [
+        "wagon",
+        "wheels",
+        "wood"
+      ],
+      "min_duration": 0.8,
+      "max_duration": 6.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "sail-flap",
+      "label": "Sail flap",
+      "category": "transport",
+      "description": "Sailcloth flapping in the wind.",
+      "keywords": [
+        "sail",
+        "sailcloth",
+        "sail flap"
+      ],
+      "search_query": "sail flapping",
+      "preferred_tags": [
+        "sail",
+        "wind"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "airplane-flyby",
+      "label": "Airplane flyby",
+      "category": "transport",
+      "description": "A short, distant propeller airplane passing by.",
+      "keywords": [
+        "airplane",
+        "propeller",
+        "flyby",
+        "plane"
+      ],
+      "search_query": "propeller airplane flyby",
+      "preferred_tags": [
+        "airplane",
+        "propeller"
+      ],
+      "min_duration": 1.0,
+      "max_duration": 6.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "balloon-burner",
+      "label": "Balloon burner",
+      "category": "transport",
+      "description": "A short hot-air-balloon burner whoosh.",
+      "keywords": [
+        "hot air balloon",
+        "balloon burner"
+      ],
+      "search_query": "hot air balloon burner",
+      "preferred_tags": [
+        "balloon",
+        "burner"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "sleigh-bells",
+      "label": "Sleigh bells",
+      "category": "transport",
+      "description": "A short shake of sleigh bells.",
+      "keywords": [
+        "sleigh",
+        "sleigh bells",
+        "jingle bells"
+      ],
+      "search_query": "sleigh bells shake",
+      "preferred_tags": [
+        "sleigh",
+        "bells"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 4.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
       "id": "car-horn",
       "label": "Car horn",
-      "category": "transport",
+      "category": "city",
       "description": "A short, polite car horn.",
       "keywords": [
         "car",
@@ -1129,23 +2767,139 @@
       "preview_path": null
     },
     {
-      "id": "boat-horn",
-      "label": "Boat horn",
-      "category": "transport",
-      "description": "A distant boat or ship horn.",
+      "id": "footsteps-pavement",
+      "label": "Footsteps on pavement",
+      "category": "city",
+      "description": "Shoes on a sidewalk.",
       "keywords": [
-        "boat",
-        "ship",
-        "horn",
-        "foghorn"
+        "pavement",
+        "sidewalk",
+        "footsteps pavement",
+        "concrete footsteps"
       ],
-      "search_query": "distant boat horn",
+      "search_query": "footsteps pavement",
       "preferred_tags": [
-        "boat",
-        "horn"
+        "footsteps",
+        "pavement"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "shop-bell",
+      "label": "Shop bell",
+      "category": "city",
+      "description": "A small bell as a shop door opens.",
+      "keywords": [
+        "shop bell",
+        "store bell",
+        "shop door bell"
+      ],
+      "search_query": "shop door bell",
+      "preferred_tags": [
+        "shop",
+        "bell"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "plaza-fountain",
+      "label": "Plaza fountain",
+      "category": "city",
+      "description": "A small town-square fountain, not a forest stream.",
+      "keywords": [
+        "fountain",
+        "plaza fountain",
+        "town fountain"
+      ],
+      "search_query": "plaza fountain water",
+      "preferred_tags": [
+        "fountain",
+        "water"
+      ],
+      "min_duration": 1.5,
+      "max_duration": 8.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "bus-doors",
+      "label": "Bus doors",
+      "category": "city",
+      "description": "Pneumatic bus doors opening or closing.",
+      "keywords": [
+        "bus door",
+        "bus doors",
+        "pneumatic door"
+      ],
+      "search_query": "bus door hiss",
+      "preferred_tags": [
+        "bus",
+        "door"
       ],
       "min_duration": 0.5,
-      "max_duration": 5.0,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "clock-tower",
+      "label": "Clock tower",
+      "category": "city",
+      "description": "A town clock-tower bell, distant and short.",
+      "keywords": [
+        "clock tower",
+        "town bell",
+        "tower bell"
+      ],
+      "search_query": "clock tower bell",
+      "preferred_tags": [
+        "bell",
+        "clock"
+      ],
+      "min_duration": 1.0,
+      "max_duration": 6.0,
       "freesound_id": null,
       "freesound_url": null,
       "preview_url": null,
@@ -1169,7 +2923,8 @@
         "giggle",
         "children",
         "kids",
-        "laughing"
+        "laughing",
+        "children laughter"
       ],
       "search_query": "children laughter giggle",
       "preferred_tags": [
@@ -1219,19 +2974,73 @@
       "preview_path": null
     },
     {
-      "id": "soft-applause",
-      "label": "Soft applause",
+      "id": "sigh",
+      "label": "Sigh",
       "category": "story",
-      "description": "Light applause, a few people clapping.",
+      "description": "A relieved or sleepy sigh.",
       "keywords": [
-        "applause",
-        "clap",
-        "clapping"
+        "sigh",
+        "relieved sigh"
       ],
-      "search_query": "soft applause clapping",
+      "search_query": "human sigh relief",
       "preferred_tags": [
-        "applause",
-        "clap"
+        "sigh"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "yawn",
+      "label": "Yawn",
+      "category": "story",
+      "description": "A yawn for a sleepy character.",
+      "keywords": [
+        "yawn",
+        "yawning",
+        "sleepy"
+      ],
+      "search_query": "human yawn",
+      "preferred_tags": [
+        "yawn"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "snore-soft",
+      "label": "Soft snore",
+      "category": "story",
+      "description": "A gentle cartoon snore.",
+      "keywords": [
+        "snore",
+        "snoring",
+        "asleep"
+      ],
+      "search_query": "soft snoring",
+      "preferred_tags": [
+        "snore"
       ],
       "min_duration": 0.6,
       "max_duration": 5.0,
@@ -1277,18 +3086,331 @@
       "preview_path": null
     },
     {
-      "id": "yawn",
-      "label": "Yawn",
+      "id": "soft-applause",
+      "label": "Soft applause",
       "category": "story",
-      "description": "A yawn for a sleepy character.",
+      "description": "Light applause, a few people clapping.",
       "keywords": [
-        "yawn",
-        "yawning",
-        "sleepy"
+        "applause",
+        "clapping"
       ],
-      "search_query": "human yawn",
+      "search_query": "soft applause clapping",
       "preferred_tags": [
-        "yawn"
+        "applause",
+        "clap"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "clap-single",
+      "label": "Single clap",
+      "category": "story",
+      "description": "One hand clap, not a round of applause.",
+      "keywords": [
+        "single clap",
+        "one clap",
+        "hand clap"
+      ],
+      "search_query": "single hand clap",
+      "preferred_tags": [
+        "clap"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 1.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "cheer-small",
+      "label": "Small cheer",
+      "category": "story",
+      "description": "A short happy cheer, a few voices saying yay.",
+      "keywords": [
+        "cheer",
+        "cheered",
+        "hooray",
+        "yay"
+      ],
+      "search_query": "children cheer yay",
+      "preferred_tags": [
+        "cheer",
+        "children"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "shush",
+      "label": "Shush",
+      "category": "story",
+      "description": "A soft shush, asking for quiet.",
+      "keywords": [
+        "shush",
+        "shh",
+        "hush"
+      ],
+      "search_query": "shush quiet",
+      "preferred_tags": [
+        "shush"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "sneeze",
+      "label": "Sneeze",
+      "category": "story",
+      "description": "A single human sneeze.",
+      "keywords": [
+        "sneeze",
+        "achoo"
+      ],
+      "search_query": "human sneeze",
+      "preferred_tags": [
+        "sneeze"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "hiccup",
+      "label": "Hiccup",
+      "category": "story",
+      "description": "A cartoon hiccup.",
+      "keywords": [
+        "hiccup",
+        "hiccups"
+      ],
+      "search_query": "human hiccup",
+      "preferred_tags": [
+        "hiccup"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "kiss",
+      "label": "Kiss",
+      "category": "story",
+      "description": "A small goodnight kiss.",
+      "keywords": [
+        "kiss",
+        "smooch"
+      ],
+      "search_query": "kiss smooch",
+      "preferred_tags": [
+        "kiss"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "sniffle-soft",
+      "label": "Soft sniffle",
+      "category": "story",
+      "description": "A gentle sniffle, not a crying wail.",
+      "keywords": [
+        "sniffle",
+        "sniff",
+        "soft sniffle"
+      ],
+      "search_query": "soft sniffle",
+      "preferred_tags": [
+        "sniffle"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "bite-crunch",
+      "label": "Bite crunch",
+      "category": "story",
+      "description": "A bite into an apple or a crunchy snack.",
+      "keywords": [
+        "bite",
+        "crunch",
+        "apple bite",
+        "munch"
+      ],
+      "search_query": "apple bite crunch",
+      "preferred_tags": [
+        "bite",
+        "crunch"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "sip",
+      "label": "Sip",
+      "category": "story",
+      "description": "A small sip from a cup.",
+      "keywords": [
+        "sip",
+        "sipping",
+        "drinking"
+      ],
+      "search_query": "sipping drink",
+      "preferred_tags": [
+        "sip",
+        "drink"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "party-horn",
+      "label": "Party horn",
+      "category": "story",
+      "description": "One party-horn toot for a birthday beat.",
+      "keywords": [
+        "party horn",
+        "party blower",
+        "toot"
+      ],
+      "search_query": "party horn toot",
+      "preferred_tags": [
+        "party",
+        "horn"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "gift-unwrap",
+      "label": "Gift unwrap",
+      "category": "story",
+      "description": "Paper unwrapping a present.",
+      "keywords": [
+        "unwrap",
+        "gift wrap",
+        "present unwrap",
+        "wrapping paper"
+      ],
+      "search_query": "gift paper unwrap",
+      "preferred_tags": [
+        "paper",
+        "unwrap"
       ],
       "min_duration": 0.5,
       "max_duration": 4.0,
@@ -1305,15 +3427,15 @@
       "preview_path": null
     },
     {
-      "id": "rooster",
-      "label": "Rooster",
+      "id": "rooster-crow",
+      "label": "Rooster crow",
       "category": "time",
       "description": "A morning rooster crow.",
       "keywords": [
         "rooster",
-        "cock",
-        "crow",
-        "morning"
+        "cock-a-doodle",
+        "rooster crow",
+        "morning rooster"
       ],
       "search_query": "rooster crow morning",
       "preferred_tags": [
@@ -1321,37 +3443,6 @@
       ],
       "min_duration": 0.6,
       "max_duration": 4.5,
-      "freesound_id": null,
-      "freesound_url": null,
-      "preview_url": null,
-      "download_url": null,
-      "license": null,
-      "duration": null,
-      "avg_rating": null,
-      "num_downloads": null,
-      "username": null,
-      "status": "empty",
-      "preview_path": null
-    },
-    {
-      "id": "rain-window",
-      "label": "Rain on window",
-      "category": "time",
-      "description": "Raindrops tapping a window, distinct from open rainfall.",
-      "keywords": [
-        "rain window",
-        "window",
-        "raindrops",
-        "glass",
-        "pane"
-      ],
-      "search_query": "rain on window drops",
-      "preferred_tags": [
-        "rain",
-        "window"
-      ],
-      "min_duration": 1.0,
-      "max_duration": 8.0,
       "freesound_id": null,
       "freesound_url": null,
       "preview_url": null,
@@ -1373,8 +3464,8 @@
         "morning",
         "dawn",
         "chorus",
-        "birds",
-        "birdsong"
+        "birdsong",
+        "dawn chorus"
       ],
       "search_query": "morning birds dawn chorus",
       "preferred_tags": [
@@ -1396,22 +3487,1114 @@
       "preview_path": null
     },
     {
-      "id": "night-ambience",
-      "label": "Night ambience",
+      "id": "crickets",
+      "label": "Crickets",
       "category": "time",
-      "description": "A quiet night bed without a featured owl or rain.",
+      "description": "Night crickets, a short bed rather than a long field recording.",
       "keywords": [
-        "night",
-        "nighttime",
-        "evening",
-        "quiet night"
+        "cricket",
+        "crickets",
+        "night cricket"
       ],
-      "search_query": "quiet night ambience",
+      "search_query": "night crickets",
       "preferred_tags": [
+        "cricket",
         "night"
       ],
       "min_duration": 1.5,
       "max_duration": 8.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "alarm-soft",
+      "label": "Alarm clock",
+      "category": "time",
+      "description": "A gentle alarm clock, short, not a blaring siren.",
+      "keywords": [
+        "alarm",
+        "alarm clock",
+        "morning alarm"
+      ],
+      "search_query": "alarm clock gentle",
+      "preferred_tags": [
+        "alarm",
+        "clock"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 4.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "school-bell",
+      "label": "School bell",
+      "category": "time",
+      "description": "A school bell ringing to start the day.",
+      "keywords": [
+        "school bell",
+        "schoolbell"
+      ],
+      "search_query": "school bell ring",
+      "preferred_tags": [
+        "school",
+        "bell"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "sword-clash",
+      "label": "Sword clash",
+      "category": "action",
+      "description": "A soft metallic sword clash for a kids' adventure, one hit, not a battle.",
+      "keywords": [
+        "sword",
+        "sword clash",
+        "swords",
+        "parry"
+      ],
+      "search_query": "sword clash metal",
+      "preferred_tags": [
+        "sword",
+        "clash",
+        "metal"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "sword-draw",
+      "label": "Sword draw",
+      "category": "action",
+      "description": "A blade sliding out of a scabbard.",
+      "keywords": [
+        "scabbard",
+        "unsheathe",
+        "sword draw",
+        "blade draw"
+      ],
+      "search_query": "sword draw scabbard",
+      "preferred_tags": [
+        "sword",
+        "scabbard"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "shield-block",
+      "label": "Shield block",
+      "category": "action",
+      "description": "A cartoon shield catching a blow, a wooden or metal thud.",
+      "keywords": [
+        "shield",
+        "shield block",
+        "buckler"
+      ],
+      "search_query": "shield block thud",
+      "preferred_tags": [
+        "shield",
+        "block"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "whoosh-punch",
+      "label": "Cartoon punch whoosh",
+      "category": "action",
+      "description": "An airy cartoon punch whoosh, no body-hit smack.",
+      "keywords": [
+        "punch",
+        "cartoon punch",
+        "air punch",
+        "whoosh punch"
+      ],
+      "search_query": "cartoon punch whoosh",
+      "preferred_tags": [
+        "whoosh",
+        "cartoon",
+        "punch"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "whoosh-swing",
+      "label": "Swing whoosh",
+      "category": "action",
+      "description": "A sword or arm swinging through the air.",
+      "keywords": [
+        "swing whoosh",
+        "weapon swing",
+        "air swing"
+      ],
+      "search_query": "cartoon swing whoosh",
+      "preferred_tags": [
+        "whoosh",
+        "swing"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "footsteps-run",
+      "label": "Running footsteps",
+      "category": "action",
+      "description": "Someone running, a short burst of steps.",
+      "keywords": [
+        "running",
+        "sprint",
+        "jogging",
+        "running footsteps",
+        "footsteps running"
+      ],
+      "search_query": "running footsteps",
+      "preferred_tags": [
+        "footsteps",
+        "running"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 4.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "footsteps-gravel",
+      "label": "Footsteps on gravel",
+      "category": "action",
+      "description": "Walking on a gravel path.",
+      "keywords": [
+        "gravel",
+        "footsteps gravel",
+        "gravel path"
+      ],
+      "search_query": "footsteps gravel",
+      "preferred_tags": [
+        "footsteps",
+        "gravel"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "tumble",
+      "label": "Cartoon tumble",
+      "category": "action",
+      "description": "A soft cartoon tumble or roll, played for comedy.",
+      "keywords": [
+        "tumble",
+        "tumbled",
+        "somersault",
+        "cartoon roll",
+        "tumble roll"
+      ],
+      "search_query": "cartoon tumble roll",
+      "preferred_tags": [
+        "tumble",
+        "cartoon"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "fall-thud",
+      "label": "Comic thud",
+      "category": "action",
+      "description": "A cushioned comic thud, as if landing on a pillow or a rug.",
+      "keywords": [
+        "thud",
+        "pratfall",
+        "soft thud",
+        "comic fall",
+        "comic thud"
+      ],
+      "search_query": "soft body thud",
+      "preferred_tags": [
+        "thud",
+        "cartoon"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "jump",
+      "label": "Cartoon jump",
+      "category": "action",
+      "description": "The takeoff of a cartoon jump.",
+      "keywords": [
+        "jump",
+        "jumped",
+        "leap",
+        "takeoff"
+      ],
+      "search_query": "cartoon jump",
+      "preferred_tags": [
+        "jump",
+        "cartoon"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "land-soft",
+      "label": "Soft landing",
+      "category": "action",
+      "description": "Feet landing from a jump.",
+      "keywords": [
+        "landing",
+        "landed",
+        "feet land",
+        "jump land",
+        "landed softly"
+      ],
+      "search_query": "soft landing feet",
+      "preferred_tags": [
+        "landing",
+        "footsteps"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "cartoon-bonk",
+      "label": "Cartoon bonk",
+      "category": "action",
+      "description": "A hollow cartoon bonk, comic and brief.",
+      "keywords": [
+        "bonk",
+        "cartoon bonk",
+        "boink"
+      ],
+      "search_query": "cartoon bonk",
+      "preferred_tags": [
+        "bonk",
+        "cartoon"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "cartoon-boing",
+      "label": "Cartoon boing",
+      "category": "action",
+      "description": "A springy cartoon boing.",
+      "keywords": [
+        "boing",
+        "sproing",
+        "cartoon spring"
+      ],
+      "search_query": "cartoon boing",
+      "preferred_tags": [
+        "boing",
+        "cartoon"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "arrow-whoosh",
+      "label": "Arrow whoosh",
+      "category": "action",
+      "description": "A cartoon arrow flying past, the air only, not an impact.",
+      "keywords": [
+        "arrow",
+        "arrow whoosh",
+        "arrow flyby"
+      ],
+      "search_query": "arrow whoosh flyby",
+      "preferred_tags": [
+        "arrow",
+        "whoosh"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "bow-release",
+      "label": "Bow release",
+      "category": "action",
+      "description": "A bowstring releasing.",
+      "keywords": [
+        "bow",
+        "bowstring",
+        "bow release"
+      ],
+      "search_query": "bow string release",
+      "preferred_tags": [
+        "bow",
+        "string"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "armor-clink",
+      "label": "Armor clink",
+      "category": "action",
+      "description": "A light shift of costume armor, a few clinks.",
+      "keywords": [
+        "armor",
+        "armor clink",
+        "chainmail"
+      ],
+      "search_query": "light armor clink",
+      "preferred_tags": [
+        "armor",
+        "metal"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "staff-tap",
+      "label": "Staff tap",
+      "category": "action",
+      "description": "A wooden staff or walking stick tapping the ground.",
+      "keywords": [
+        "staff",
+        "walking stick",
+        "staff tap"
+      ],
+      "search_query": "wooden staff tap",
+      "preferred_tags": [
+        "staff",
+        "wood"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "climb-scramble",
+      "label": "Climb scramble",
+      "category": "action",
+      "description": "Hands and feet scrambling up rock or a tree.",
+      "keywords": [
+        "climb",
+        "climbed",
+        "scramble",
+        "scrambled",
+        "climbing",
+        "climbing rock"
+      ],
+      "search_query": "climbing scramble",
+      "preferred_tags": [
+        "climb",
+        "scramble"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 4.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "gate-clang",
+      "label": "Gate clang",
+      "category": "action",
+      "description": "An iron gate or portcullis moving, one short clang.",
+      "keywords": [
+        "gate",
+        "iron gate",
+        "portcullis"
+      ],
+      "search_query": "iron gate clang",
+      "preferred_tags": [
+        "gate",
+        "metal"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "trap-click",
+      "label": "Trap click",
+      "category": "action",
+      "description": "A small mechanical click from a puzzle or a cartoon trap.",
+      "keywords": [
+        "click",
+        "mechanism",
+        "puzzle click",
+        "lever"
+      ],
+      "search_query": "mechanical click puzzle",
+      "preferred_tags": [
+        "click",
+        "mechanism"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 2.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "rope-swing",
+      "label": "Rope swing",
+      "category": "action",
+      "description": "A rope swinging through the air.",
+      "keywords": [
+        "rope swing",
+        "vine swing",
+        "swinging rope"
+      ],
+      "search_query": "rope swing whoosh",
+      "preferred_tags": [
+        "rope",
+        "swing"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "dragon-roar",
+      "label": "Dragon roar",
+      "category": "creatures",
+      "description": "A short storybook dragon roar, a single burst.",
+      "keywords": [
+        "dragon",
+        "dragon roar"
+      ],
+      "search_query": "dragon roar cartoon",
+      "preferred_tags": [
+        "dragon",
+        "roar"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "dragon-wings",
+      "label": "Dragon wings",
+      "category": "creatures",
+      "description": "Large wings flapping once or twice.",
+      "keywords": [
+        "dragon wings",
+        "large wing flap"
+      ],
+      "search_query": "dragon wing flap",
+      "preferred_tags": [
+        "dragon",
+        "wings"
+      ],
+      "min_duration": 0.5,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "fairy-wings",
+      "label": "Fairy wings",
+      "category": "creatures",
+      "description": "Tiny fairy wings fluttering.",
+      "keywords": [
+        "fairy wings",
+        "pixie wings",
+        "tiny flutter"
+      ],
+      "search_query": "fairy wings flutter",
+      "preferred_tags": [
+        "fairy",
+        "wings"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "fairy-giggle",
+      "label": "Fairy giggle",
+      "category": "creatures",
+      "description": "A tiny fairy giggle, not a group of children laughing.",
+      "keywords": [
+        "fairy giggle",
+        "pixie laugh",
+        "tiny giggle"
+      ],
+      "search_query": "tiny fairy giggle",
+      "preferred_tags": [
+        "fairy",
+        "giggle"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "ghost-boo",
+      "label": "Ghost boo",
+      "category": "creatures",
+      "description": "A playful cartoon ghost boo, not a horror sting.",
+      "keywords": [
+        "ghost",
+        "boo",
+        "cartoon ghost"
+      ],
+      "search_query": "cartoon ghost boo",
+      "preferred_tags": [
+        "ghost",
+        "cartoon"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "robot-beep",
+      "label": "Robot beep",
+      "category": "creatures",
+      "description": "A cute robot beep or chirp.",
+      "keywords": [
+        "robot",
+        "robot beep",
+        "beep boop"
+      ],
+      "search_query": "cute robot beep",
+      "preferred_tags": [
+        "robot",
+        "beep"
+      ],
+      "min_duration": 0.2,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "monster-growl",
+      "label": "Friendly monster growl",
+      "category": "creatures",
+      "description": "A short, muffled, friendly monster growl for a gentle storybook monster.",
+      "keywords": [
+        "monster",
+        "monster growl",
+        "friendly growl"
+      ],
+      "search_query": "cartoon monster growl soft",
+      "preferred_tags": [
+        "monster",
+        "growl",
+        "cartoon"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "treasure-jingle",
+      "label": "Treasure jingle",
+      "category": "creatures",
+      "description": "Coins jingling in a small pouch.",
+      "keywords": [
+        "coins",
+        "treasure",
+        "jingle",
+        "coin purse"
+      ],
+      "search_query": "coins jingle pouch",
+      "preferred_tags": [
+        "coins",
+        "jingle"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "chest-open",
+      "label": "Treasure chest",
+      "category": "creatures",
+      "description": "A wooden treasure-chest lid creaking open.",
+      "keywords": [
+        "treasure chest",
+        "chest lid",
+        "chest open"
+      ],
+      "search_query": "treasure chest creak",
+      "preferred_tags": [
+        "chest",
+        "creak",
+        "wood"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "parchment-unfurl",
+      "label": "Parchment unfurl",
+      "category": "creatures",
+      "description": "A map or parchment unrolling.",
+      "keywords": [
+        "parchment",
+        "map unfurl",
+        "scroll"
+      ],
+      "search_query": "map parchment unfurl",
+      "preferred_tags": [
+        "paper",
+        "scroll"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "slime-squish",
+      "label": "Slime squish",
+      "category": "creatures",
+      "description": "A playful cartoon slime squish.",
+      "keywords": [
+        "slime",
+        "squish",
+        "goo"
+      ],
+      "search_query": "cartoon slime squish",
+      "preferred_tags": [
+        "slime",
+        "cartoon"
+      ],
+      "min_duration": 0.3,
+      "max_duration": 3.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "swing-squeak",
+      "label": "Swing squeak",
+      "category": "play",
+      "description": "Playground swing chains squeaking.",
+      "keywords": [
+        "swing",
+        "swing chains",
+        "playground swing",
+        "swing set"
+      ],
+      "search_query": "playground swing squeak",
+      "preferred_tags": [
+        "swing",
+        "squeak"
+      ],
+      "min_duration": 0.6,
+      "max_duration": 5.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "ball-bounce",
+      "label": "Ball bounce",
+      "category": "play",
+      "description": "A ball bouncing a few times.",
+      "keywords": [
+        "ball",
+        "bounce",
+        "bouncing ball"
+      ],
+      "search_query": "ball bounce",
+      "preferred_tags": [
+        "ball",
+        "bounce"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 4.0,
+      "freesound_id": null,
+      "freesound_url": null,
+      "preview_url": null,
+      "download_url": null,
+      "license": null,
+      "duration": null,
+      "avg_rating": null,
+      "num_downloads": null,
+      "username": null,
+      "status": "empty",
+      "preview_path": null
+    },
+    {
+      "id": "slide-whoosh",
+      "label": "Slide whoosh",
+      "category": "play",
+      "description": "A short whoosh down a playground slide.",
+      "keywords": [
+        "slide",
+        "playground slide",
+        "slide whoosh"
+      ],
+      "search_query": "playground slide whoosh",
+      "preferred_tags": [
+        "slide",
+        "whoosh"
+      ],
+      "min_duration": 0.4,
+      "max_duration": 3.5,
       "freesound_id": null,
       "freesound_url": null,
       "preview_url": null,

@@ -160,7 +160,7 @@ Example cue after alignment:
 
 ## FreeSound catalog
 
-Story requests use a fixed pack of picture-book sounds in `assets/sfx_catalog/catalog.json` (about 30–50 slots: animals, weather, home, footsteps, doors, magic, bedtime beats). After xAI returns catalog ids, Python downloads only those rows' `preview_url` values. It does not search FreeSound while `FREESOUND_CATALOG_ONLY` is true (the default).
+Story requests use a fixed pack of picture-book and children's-adventure sounds in `assets/sfx_catalog/catalog.json` (100+ slots: animals, weather, water, forest, home, magic, transport, city, story beats, time of day, cartoon action, fantasy creatures, and play). Action slots are age-appropriate — a soft sword clash, a shield block, a cartoon punch whoosh, running footsteps, a tumble — and not gore. After xAI returns catalog ids, Python downloads only those rows' `preview_url` values. It does not search FreeSound while `FREESOUND_CATALOG_ONLY` is true (the default).
 
 The checked-in file lists the slots with empty FreeSound ids. Fill them once:
 
@@ -254,7 +254,7 @@ app/schemas/sfx.py          cue schema and alignment
 app/services/xai.py        xAI Chat Completions client
 app/services/freesound.py   catalog match + preview download
 app/services/sfx_catalog.py catalog load, match, and builder ranking
-assets/sfx_catalog/catalog.json  fixed kids-book sound slots
+assets/sfx_catalog/catalog.json  100+ picture-book and adventure slots
 scripts/build_sfx_catalog.py     one-shot FreeSound fill for those slots
 tests/run_ingestion.py           sample Deepgram JSON -> SFX MP3 via the pipeline
 app/services/mixer.py       silence + overlays -> MP3 bytes

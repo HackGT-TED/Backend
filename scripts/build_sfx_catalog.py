@@ -1,4 +1,8 @@
-"""Fill the fixed kids-book SFX catalog with one FreeSound sound per slot.
+"""Fill empty picture-book and children's-adventure SFX slots from FreeSound.
+
+The checked-in catalog (``assets/sfx_catalog/catalog.json``) is 100+ slots,
+including cartoon-safe action. This script does not invent FreeSound ids: a
+slot stays empty when the search returns nothing usable.
 
 Story requests never call this. Run it once (and again after you reject a slot):
 
