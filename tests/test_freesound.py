@@ -186,7 +186,7 @@ def test_catalog_only_downloads_the_matched_preview_and_does_not_search(tmp_path
             _settings(freesound_api_key="", freesound_catalog_only=True, sfx_catalog_path=str(catalog)),
             http=http,
         )
-        clip = client.download_for_query("wooden door creak")
+        clip = client.download_for_query("door-creak")
 
     assert clip.sound_id == 99
     assert clip.name == "Door creak"
@@ -225,7 +225,9 @@ def test_catalog_only_missing_preview_does_not_search(tmp_path):
             http=http,
         )
         with pytest.raises(FreeSoundError, match="build_sfx_catalog"):
-            client.download_for_query("door creak")
+            client.download_for_query("door-creak")
+        with pytest.raises(FreeSoundError, match="does not search"):
+            client.download_for_query("wooden door creak")
 
 
 def test_catalog_only_rejects_queries_outside_the_pack(tmp_path):

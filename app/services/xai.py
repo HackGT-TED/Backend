@@ -25,23 +25,27 @@ from app.config import Settings
 from app.schemas.deepgram import NormalizedTranscript
 from app.schemas.sfx import SFX_RESPONSE_FORMAT, SfxCue, SfxPlan, align_cues
 
-_SYSTEM_PROMPT = """You are the sound designer for a children's teddy bear that plays a grandparent's story.
-Given a transcript with word and segment timestamps, choose sound effects that match the story.
+_SYSTEM_PROMPT = """You match moments in a children's story to sounds from a fixed catalog.
+Your only job is similarity: which catalog sound fits which words, and when it should play.
+Python downloads those clips from FreeSound and places them on the timeline. You do not fetch audio.
 Rules:
-- Return between 0 and 12 cues. Use fewer cues when the story is short. Zero cues is allowed when nothing in the story wants an effect.
-- Align start and end to the words the effect should accompany. Times are seconds from the start of the story.
+- catalog_id must be copied exactly from the catalog list in the user message. Never invent an id.
+- Return between 0 and 12 cues. Use fewer when the story is short. Zero cues is allowed.
+- Align start and end to the words the sound should accompany. Times are seconds.
 - start must be >= 0 and end must be <= duration_seconds. end must be greater than start.
-- query is 2-6 words naming a concrete picture-book sound, such as "gentle rain ambience", "wooden door creak", "dog bark", "owl hoot", or "magic chime".
-- Stay inside a children's book palette: animals, weather, cozy home foley, footsteps, doors, magic chimes, and soft bedtime beats. Do not request speech, songs, or music.
-- description is one sentence explaining the cue.
+- description is one short sentence explaining the match.
 """
 
 
 class XaiClient(Protocol):
     """Plans timed sound-effect cues for one transcript."""
 
-    def plan_cues(self, transcript: NormalizedTranscript) -> list[SfxCue]:
-        """Return cues aligned to ``transcript.duration_seconds``."""
+    def plan_cues(
+        self,
+        transcript: NormalizedTranscript,
+        catalog: list[dict] | None = None,
+    ) -> list[SfxCue]:
+        """Return catalog sounds and times for ``transcript``."""
 
 
 class XaiError(RuntimeError):
@@ -70,24 +74,27 @@ class HttpXaiClient:
         if self._owns_http:
             self._http.close()
 
-    def plan_cues(self, transcript: NormalizedTranscript) -> list[SfxCue]:
+    def plan_cues(
+        self,
+        transcript: NormalizedTranscript,
+        catalog: list[dict] | None = None,
+    ) -> list[SfxCue]:
         if not self._api_key:
             raise XaiNotConfiguredError(
                 "XAI_API_KEY is not set. Add it to .env (see .env.example). "
                 "No request was sent."
             )
-        plan = self._complete(transcript)
+        plan = self._complete(transcript, catalog)
         return align_cues(plan.cues, transcript.duration_seconds)
 
-    def _complete(self, transcript: NormalizedTranscript) -> SfxPlan:
+    def _complete(self, transcript: NormalizedTranscript, catalog: list[dict] | None) -> SfxPlan:
+        user = transcript.prompt_payload()
+        user["catalog"] = catalog or []
         payload = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": _SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": json.dumps(transcript.prompt_payload(), ensure_ascii=False),
-                },
+                {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
             ],
             "response_format": SFX_RESPONSE_FORMAT,
         }

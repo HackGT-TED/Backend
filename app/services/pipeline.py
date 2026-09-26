@@ -15,6 +15,7 @@ from app.services.freesound import (
     FreeSoundRateLimitError,
 )
 from app.services.mixer import AudioMixError, TimedClip, load_clip, mix_sfx_bytes
+from app.services.sfx_catalog import CATALOG_PATH, catalog_choices, load_catalog
 from app.services.xai import XaiClient
 
 logger = logging.getLogger(__name__)
@@ -33,9 +34,11 @@ def run_pipeline(
     xai: XaiClient,
     freesound: FreeSoundClient,
 ) -> PipelineOutput:
-    """Plan cues, download previews, and return an SFX-only MP3."""
+    """Ask xAI which catalog sounds fit, fetch those clips, and mix them on the story clock."""
 
-    cues = xai.plan_cues(transcript)
+    choices = _catalog_for_planning()
+    allowed = {item["id"] for item in choices}
+    cues = xai.plan_cues(transcript, choices)
     warnings: list[str] = []
     timed: list[TimedClip] = []
     rate_limited = 0
@@ -43,10 +46,14 @@ def run_pipeline(
     for cue in cues:
         start_ms, end_ms = cue.window_ms()
         if end_ms - start_ms < 50:
-            warnings.append(f"Skipped cue {cue.query!r}: window is shorter than 50ms")
+            warnings.append(f"Skipped cue {cue.catalog_id!r}: window is shorter than 50ms")
+            continue
+        if allowed and cue.catalog_id not in allowed:
+            warnings.append(f"Skipped cue {cue.catalog_id!r}: not in the SFX catalog")
+            logger.warning("Skipping cue %s: not in catalog", cue.catalog_id)
             continue
         try:
-            downloaded = freesound.download_for_query(cue.query)
+            downloaded = freesound.download_for_query(cue.catalog_id)
         except FreeSoundNotConfiguredError:
             raise
         except FreeSoundRateLimitError as exc:
@@ -88,3 +95,15 @@ def run_pipeline(
         audio_bytes=audio_bytes,
         warnings=warnings,
     )
+
+
+def _catalog_for_planning() -> list[dict]:
+    try:
+        catalog = load_catalog(CATALOG_PATH)
+    except (OSError, ValueError) as exc:
+        logger.warning("SFX catalog could not be loaded for planning: %s", exc)
+        return []
+    entries = catalog.get("entries")
+    if not isinstance(entries, list):
+        return []
+    return catalog_choices(entries)

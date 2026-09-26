@@ -46,6 +46,20 @@ _MUSIC_TOKENS = {"music", "song", "melody", "soundtrack", "instrumental"}
 _SEARCH_FIELDS = "id,name,tags,duration,license,previews,avg_rating,num_downloads,username"
 
 
+def catalog_choices(entries: list[dict]) -> list[dict]:
+    """Id and label only, for the xAI similarity step. Rejected slots are omitted."""
+
+    choices: list[dict] = []
+    for entry in entries:
+        if str(entry.get("status") or "") == "rejected":
+            continue
+        slot_id = entry.get("id")
+        if not slot_id:
+            continue
+        choices.append({"id": str(slot_id), "label": str(entry.get("label") or slot_id)})
+    return choices
+
+
 def load_catalog(path: Path | None = None) -> dict:
     """Read the checked-in catalog JSON."""
 

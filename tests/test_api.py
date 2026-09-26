@@ -24,9 +24,10 @@ class FakeXai:
         self.cues = cues
         self.calls = 0
 
-    def plan_cues(self, transcript):
+    def plan_cues(self, transcript, catalog=None):
         self.calls += 1
         assert "rain" in transcript.text
+        assert catalog is None or any(item.get("id") == "rain" for item in catalog)
         return self.cues
 
 
@@ -112,13 +113,13 @@ def test_process_stores_recording_and_serves_aligned_sfx():
     xai = FakeXai(
         [
             SfxCue(
-                query="gentle rain ambience",
+                query="rain",
                 description="Rain under the first sentence.",
                 start=1.28,
                 end=2.6,
             ),
             SfxCue(
-                query="wooden door creak",
+                query="door-creak",
                 description="The creaky door.",
                 start=4.55,
                 end=5.5,
@@ -169,20 +170,20 @@ def test_process_stores_recording_and_serves_aligned_sfx():
         assert client.get("/stories/does-not-exist/sfx").status_code == 404
 
     assert xai.calls == 1
-    assert freesound.queries == ["gentle rain ambience", "wooden door creak"]
+    assert freesound.queries == ["rain", "door-creak"]
     assert f"{body['id']}/sfx.mp3" in store.files
 
 
 def test_raw_deepgram_body_is_accepted():
     xai = FakeXai(
-        [SfxCue(query="bird song", description="The bird.", start=6.3, end=7.6)]
+        [SfxCue(query="bird-chirp", description="The bird.", start=6.3, end=7.6)]
     )
     client, _store = _client(xai, FakeFreeSound())
     with client:
         created = client.post("/stories/process", json=json.loads(FIXTURE.read_text()))
         assert created.status_code == 201
         assert created.json()["story_id"] is None
-        assert created.json()["cues"][0]["query"] == "bird song"
+        assert created.json()["cues"][0]["query"] == "bird-chirp"
 
 
 def test_invalid_transcript_is_422_and_stores_nothing():
@@ -228,7 +229,7 @@ def test_missing_supabase_config_fails_before_a_row_is_written():
     app = create_app(
         settings=settings,
         xai_client=FakeXai(
-            [SfxCue(query="gentle rain ambience", description="rain", start=1.28, end=2.6)]
+            [SfxCue(query="rain", description="rain", start=1.28, end=2.6)]
         ),
         freesound_client=FakeFreeSound(),
     )
@@ -241,7 +242,7 @@ def test_missing_supabase_config_fails_before_a_row_is_written():
 def test_a_missing_freesound_hit_is_a_warning_not_a_failed_story():
     xai = FakeXai(
         [
-            SfxCue(query="gentle rain ambience", description="rain", start=1.28, end=2.6),
+            SfxCue(query="rain", description="rain", start=1.28, end=2.6),
             SfxCue(query="unicorn sneeze", description="no such clip", start=6.3, end=7.1),
         ]
     )
@@ -261,11 +262,11 @@ def test_a_missing_freesound_hit_is_a_warning_not_a_failed_story():
 
 def test_freesound_rate_limit_on_every_cue_is_429():
     xai = FakeXai(
-        [SfxCue(query="gentle rain ambience", description="rain", start=1.28, end=2.6)]
+        [SfxCue(query="rain", description="rain", start=1.28, end=2.6)]
     )
     freesound = FakeFreeSound(
         fail_queries={
-            "gentle rain ambience": FreeSoundRateLimitError("FreeSound rate limit exceeded")
+            "rain": FreeSoundRateLimitError("FreeSound rate limit exceeded")
         }
     )
     client, _store = _client(xai, freesound)
@@ -296,7 +297,7 @@ def test_transcribe_url_returns_word_timestamps():
 def test_process_audio_transcribes_then_stores_sfx():
     deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
     xai = FakeXai(
-        [SfxCue(query="gentle rain ambience", description="rain", start=1.28, end=2.6)]
+        [SfxCue(query="rain", description="rain", start=1.28, end=2.6)]
     )
     client, store = _client(xai, FakeFreeSound(), deepgram)
     with client:

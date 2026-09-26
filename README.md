@@ -8,9 +8,9 @@ Audio can be transcribed here with Deepgram, or the client can send Deepgram JSO
 audio URL or bytes -> Deepgram POST /v1/listen
   or Deepgram JSON the client already has
   -> transcript text + word/segment timestamps
-  -> xAI chat completions (structured SFX cues)
-  -> fixed SFX catalog match + that preview MP3 per cue
-  -> silent timeline mixed under /tmp
+  -> xAI picks catalog ids that match the story (similarity only)
+  -> Python downloads only those FreeSound previews
+  -> Python places the clips on a silent timeline under /tmp
   -> Supabase Storage object + recordings row
   -> public SFX URL
 ```
@@ -136,28 +136,31 @@ Cue planning uses xAI's [OpenAI-compatible Chat Completions API](https://docs.x.
 - Default URL: `https://api.x.ai/v1/chat/completions`
 - Default model: `grok-4.7`, the chat model on the [Grok 4.7 model page](https://docs.x.ai/docs/models/grok-4.7). That page lists structured outputs as supported. Override with `XAI_MODEL`.
 - Auth header: `Authorization: Bearer $XAI_API_KEY`
-- Structured cues: `response_format.type = "json_schema"` with the `sfx_plan` schema (`query`, `description`, `start`, `end` in seconds). The client still accepts fenced JSON or a JSON object wrapped in prose if the message is not bare JSON.
+- Structured cues: `response_format.type = "json_schema"` with the `sfx_plan` schema (`catalog_id`, `description`, `start`, `end` in seconds). `catalog_id` must be one of the ids in `assets/sfx_catalog/catalog.json`. The client still accepts fenced JSON or a JSON object wrapped in prose if the message is not bare JSON.
 - A missing key fails in-process with `XaiNotConfiguredError` and does not open a socket.
 - `grok-4.7` reasons by default. The default HTTP timeout is 60 seconds; set `HTTP_TIMEOUT_SECONDS` higher if planning calls time out.
 
-The planner is asked for at most twelve child-friendly foley or ambience cues aligned to the word timestamps. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped.
+xAI only chooses which catalog sounds are similar to the story and when they play. It does not download audio. Python drops any id that is not in the catalog, fetches those preview files, and mixes them.
+
+The planner is asked for at most twelve cues. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped.
 
 Example cue after alignment:
 
 ```json
 {
-  "query": "gentle rain ambience",
+  "query": "rain",
+  "catalog_id": "rain",
   "description": "Rain under the first sentence.",
-  "start": 1.28,
-  "end": 2.6,
-  "start_ms": 1280,
-  "end_ms": 2600
+  "start": 0.75,
+  "end": 4.21,
+  "start_ms": 750,
+  "end_ms": 4210
 }
 ```
 
 ## FreeSound catalog
 
-Story requests use a fixed pack of picture-book sounds in `assets/sfx_catalog/catalog.json` (about 30–50 slots: animals, weather, home, footsteps, doors, magic, bedtime beats). Each xAI cue is matched to the closest slot by keywords. The service downloads that slot's `preview_url` and does not call FreeSound search while `FREESOUND_CATALOG_ONLY` is true (the default).
+Story requests use a fixed pack of picture-book sounds in `assets/sfx_catalog/catalog.json` (about 30–50 slots: animals, weather, home, footsteps, doors, magic, bedtime beats). After xAI returns catalog ids, Python downloads only those rows' `preview_url` values. It does not search FreeSound while `FREESOUND_CATALOG_ONLY` is true (the default).
 
 The checked-in file lists the slots with empty FreeSound ids. Fill them once:
 

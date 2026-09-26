@@ -1,6 +1,6 @@
 """Sound-effect cues returned by xAI and consumed by the mixer."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 SFX_PLAN_SCHEMA: dict = {
@@ -13,9 +13,9 @@ SFX_PLAN_SCHEMA: dict = {
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
-                    "query": {
+                    "catalog_id": {
                         "type": "string",
-                        "description": "Short FreeSound search query, two to six words.",
+                        "description": "Exact id copied from the catalog list.",
                     },
                     "description": {
                         "type": "string",
@@ -30,7 +30,7 @@ SFX_PLAN_SCHEMA: dict = {
                         "description": "End time in seconds, aligned to the transcript.",
                     },
                 },
-                "required": ["query", "description", "start", "end"],
+                "required": ["catalog_id", "description", "start", "end"],
             },
         }
     },
@@ -59,12 +59,23 @@ class SfxCue(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    query: str
+    query: str = ""
+    catalog_id: str = ""
     description: str = ""
     start: float | None = None
     end: float | None = None
     start_ms: int | None = None
     end_ms: int | None = None
+
+    @model_validator(mode="after")
+    def _sync_catalog_id(self) -> "SfxCue":
+        if self.catalog_id and not self.query:
+            self.query = self.catalog_id
+        elif self.query and not self.catalog_id:
+            self.catalog_id = self.query
+        if not self.catalog_id:
+            raise ValueError("SFX cue is missing catalog_id")
+        return self
 
     def window_ms(self) -> tuple[int, int]:
         if self.start_ms is not None and self.end_ms is not None:

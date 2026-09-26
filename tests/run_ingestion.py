@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Turn fixtures/deepgram_sample.json into a timestamped SFX MP3.
 
-This is the real story pipeline: normalize the Deepgram JSON, ask xAI for
-cues, download the matching previews from assets/sfx_catalog/catalog.json,
-and mix them onto a silent timeline the length of the story.
+This is the real story pipeline. Python reads the Deepgram JSON. xAI only
+chooses which catalog ids match the story and when. Python then downloads
+those FreeSound previews from assets/sfx_catalog/catalog.json and places the
+clips on a silent timeline the length of the story.
 
     python tests/run_ingestion.py
     python tests/run_ingestion.py --output out/story_sfx.mp3
@@ -84,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
                 "warnings": output.warnings,
                 "cues": [
                     {
+                        "catalog_id": cue.catalog_id,
                         "query": cue.query,
                         "description": cue.description,
                         "start": cue.start,
@@ -102,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"story duration: {output.duration_seconds:.2f}s")
     print(f"cues: {len(output.cues)}")
     for cue in output.cues:
-        print(f"  {cue.start:.2f}-{cue.end:.2f}s  {cue.query}")
+        print(f"  {cue.start:.2f}-{cue.end:.2f}s  {cue.catalog_id}")
     if output.warnings:
         print("warnings:")
         for warning in output.warnings:

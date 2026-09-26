@@ -1,8 +1,8 @@
 """FreeSound preview downloads for story cues.
 
-Catalog mode (the default) matches the cue to one row in
-``assets/sfx_catalog/catalog.json`` and downloads that row's preview MP3.
-It does not call FreeSound text search.
+Catalog mode (the default) downloads one row from
+``assets/sfx_catalog/catalog.json`` by exact catalog id. It does not search
+FreeSound and it does not guess a similar sound.
 
 Live search remains available when ``FREESOUND_CATALOG_ONLY=false``:
 
@@ -23,7 +23,7 @@ from typing import Protocol
 import httpx
 
 from app.config import Settings
-from app.services.sfx_catalog import CATALOG_PATH, load_catalog, match_entry
+from app.services.sfx_catalog import CATALOG_PATH, load_catalog
 
 
 class FreeSoundError(RuntimeError):
@@ -63,10 +63,10 @@ class DownloadedClip:
 class HttpFreeSoundClient:
     """Download a preview MP3 for one story cue.
 
-    In catalog-only mode the cue is matched to ``catalog.json`` and that
-    preview URL is fetched. No FreeSound search request is made, and
-    ``FREESOUND_API_KEY`` is not required. HTTP 429 on the preview download
-    is retried with ``Retry-After`` (or a short backoff).
+    In catalog-only mode ``query`` is a catalog id. That row's preview URL is
+    fetched. No FreeSound search request is made, and ``FREESOUND_API_KEY``
+    is not required. HTTP 429 on the preview download is retried with
+    ``Retry-After`` (or a short backoff).
     """
 
     def __init__(
@@ -111,17 +111,17 @@ class HttpFreeSoundClient:
         return self._clip_from_download(cleaned, result, preview_url)
 
     def _download_catalog_clip(self, query: str) -> DownloadedClip:
-        entry = match_entry(self._entries(), query)
+        entry = _entry_by_id(self._entries(), query)
         if entry is None:
             raise FreeSoundError(
-                f"No catalog sound matches {query!r}. "
-                "Catalog-only mode does not search FreeSound."
+                f"Catalog has no sound {query!r}. "
+                "xAI must return a catalog id. Catalog-only mode does not search FreeSound."
             )
         preview_url = entry.get("preview_url")
         if not isinstance(preview_url, str) or not preview_url.startswith("http"):
             slot_id = entry.get("id")
             raise FreeSoundError(
-                f"Catalog slot {slot_id!r} matches {query!r} but has no preview_url. "
+                f"Catalog slot {slot_id!r} has no preview_url. "
                 "Run `python scripts/build_sfx_catalog.py` with FREESOUND_API_KEY, "
                 "listen to assets/sfx_catalog/previews/, and set status to approved "
                 "or rejected in assets/sfx_catalog/catalog.json."
@@ -232,6 +232,16 @@ class HttpFreeSoundClient:
                 )
             return response
         raise FreeSoundError(f"FreeSound request failed: {last_error}")
+
+
+def _entry_by_id(entries: list[dict], catalog_id: str) -> dict | None:
+    for entry in entries:
+        if str(entry.get("id") or "") != catalog_id:
+            continue
+        if str(entry.get("status") or "") == "rejected":
+            return None
+        return entry
+    return None
 
 
 def _clean_query(query: str) -> str:

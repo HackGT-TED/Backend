@@ -57,18 +57,21 @@ def test_plan_cues_posts_json_schema_and_aligns_to_the_story():
         assert body["model"] == "grok-4.7"
         assert body["response_format"]["type"] == "json_schema"
         assert body["response_format"]["json_schema"]["name"] == "sfx_plan"
-        assert "The rain began" in body["messages"][1]["content"]
+        assert "catalog_id" in body["response_format"]["json_schema"]["schema"]["properties"]["cues"]["items"]["required"]
+        user = json.loads(body["messages"][1]["content"])
+        assert "The rain began" in user["transcript"]
+        assert user["catalog"] == [{"id": "rain", "label": "Rain"}]
         content = json.dumps(
             {
                 "cues": [
                     {
-                        "query": "gentle rain ambience",
+                        "catalog_id": "rain",
                         "description": "Rain while the story mentions rain.",
                         "start": 1.28,
                         "end": 2.6,
                     },
                     {
-                        "query": "past the ending",
+                        "catalog_id": "past-the-ending",
                         "description": "This window is outside the story.",
                         "start": 80,
                         "end": 81,
@@ -83,10 +86,11 @@ def test_plan_cues_posts_json_schema_and_aligns_to_the_story():
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as http:
         client = HttpXaiClient(_settings(), http=http)
-        cues = client.plan_cues(_transcript())
+        cues = client.plan_cues(_transcript(), [{"id": "rain", "label": "Rain"}])
 
     assert len(cues) == 1
-    assert cues[0].query == "gentle rain ambience"
+    assert cues[0].catalog_id == "rain"
+    assert cues[0].query == "rain"
     assert cues[0].start_ms == 1280
     assert cues[0].end_ms == 2600
     assert cues[0].start == 1.28
