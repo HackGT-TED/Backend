@@ -1,18 +1,19 @@
 # HackGT TED story backend
 
-Grandparents record a story for a child. Deepgram turns that recording into JSON with word and segment timestamps. This service asks xAI where the sound effects should go, downloads matching clips from FreeSound, and mixes an **SFX-only MP3** aligned to those timestamps. The grandparents' web app and the kids' app load the stored recording and the MP3.
+Grandparents record a story for a child. Upload that audio and the service returns the same recording with picture-book sound effects laid on top, at the words they belong to.
 
-Audio can be transcribed here with Deepgram, or the client can send Deepgram JSON it already fetched. Processing is synchronous: the mix finishes before the response. The MP3 is mixed in a temporary directory and uploaded to Supabase Storage. Metadata lives in a Supabase Postgres table. There is no local database.
+Deepgram (or Gladia, if that is the key you have) timestamps the words. xAI only decides which sounds in the fixed catalog match those words, and when. Python downloads those FreeSound previews and mixes them onto the recording. The output is one MP3 the length of the upload.
+
+A separate path still accepts Deepgram JSON and stores an effects-only track in Supabase. That path is for the kids app that plays effects under a recording it already has. The file you want from an upload is `POST /stories/render`.
 
 ```
-audio URL or bytes -> Deepgram POST /v1/listen
-  or Deepgram JSON the client already has
-  -> transcript text + word/segment timestamps
-  -> xAI picks catalog ids that match the story (similarity only)
+audio file
+  -> Deepgram POST /v1/listen  (or Gladia if DEEPGRAM_API_KEY is empty)
+  -> word timestamps
+  -> xAI picks catalog ids (similarity only)
   -> Python downloads only those FreeSound previews
-  -> Python places the clips on a silent timeline under /tmp
-  -> Supabase Storage object + recordings row
-  -> public SFX URL
+  -> Python lays the clips on the recording at those times
+  -> MP3, same length as the upload
 ```
 
 ## Requirements
@@ -46,7 +47,7 @@ Run `supabase/schema.sql` in the Supabase SQL editor once. It creates `public.re
 uvicorn app.main:app --reload
 ```
 
-The API listens on `http://127.0.0.1:8000`. Interactive docs are at `/docs`. `GET /health` returns `{"status": "ok"}` with no keys configured. `POST /stories/process` returns **503** until Supabase and xAI are configured. Sound effects come from the checked-in catalog, so a FreeSound API key is not required on the request path.
+The API listens on `http://127.0.0.1:8000`. `uvicorn main:app` loads the same app. Interactive docs are at `/docs`. `GET /health` returns `{"status": "ok"}` with no keys configured. `POST /stories/render` returns **503** until xAI and a transcriber key are set. It does not need Supabase. Sound effects come from the checked-in catalog, so a FreeSound API key is not required on the request path.
 
 The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and on Vercel) and deletes that file after the bytes are uploaded. The recording row stores `sfx_storage_path` and the public `sfx_url`.
 
@@ -64,10 +65,11 @@ The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and 
 | `SUPABASE_URL` | to store stories | empty | Project URL, `https://<ref>.supabase.co`. |
 | `SUPABASE_SERVICE_ROLE_KEY` | to store stories | empty | Server-side key. Bypasses RLS. Never send it to a browser. |
 | `SUPABASE_SFX_BUCKET` | no | `story-sfx` | Public Storage bucket for SFX MP3s. |
-| `DEEPGRAM_API_KEY` | to transcribe audio | empty | `Authorization: Token` for `POST /v1/listen`. JSON process does not need it. |
+| `DEEPGRAM_API_KEY` | to transcribe audio | empty | `Authorization: Token` for `POST /v1/listen`. Preferred for `/stories/render`. JSON process does not need it. |
 | `DEEPGRAM_BASE_URL` | no | `https://api.deepgram.com` | Listen API host. |
 | `DEEPGRAM_MODEL` | no | `nova-3` | Prerecorded model id. |
 | `DEEPGRAM_LANGUAGE` | no | `en` | Language hint passed to Deepgram. |
+| `GLADIA_API_KEY` | if Deepgram is unset | empty | Fallback transcriber for `/stories/render`. Ignored when `DEEPGRAM_API_KEY` is set. |
 | `CORS_ORIGINS` | no | `*` | Comma-separated browser origins for the web and kids apps. |
 | `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for xAI and FreeSound. Raise this if `grok-4.7` reasoning runs long. |
 
@@ -76,6 +78,26 @@ A missing `XAI_API_KEY` or Supabase key raises before any external call that nee
 `SUPABASE_ANON_KEY` is not used. Browser and kids apps should call this API and then load `sfx_url`. That URL is the public object URL for bucket `story-sfx`.
 
 ## API
+
+### `POST /stories/render`
+
+Upload a recording. The response body is that recording with the effects mixed in (`audio/mpeg`). Supabase is not used.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/stories/render \
+  -F "audio=@story.wav;type=audio/wav" \
+  -o out/story_with_sfx.mp3
+```
+
+Needs `XAI_API_KEY` and `DEEPGRAM_API_KEY` (or `GLADIA_API_KEY`). The decoded file length is the clock, so a cue cannot run past the recording. Effects are trimmed to their cue window and lowered about 8 dB so the voice stays in front. Response headers: `X-Story-Duration-Seconds`, `X-Story-Cue-Count`, and `X-Story-Warnings` when a cue was skipped.
+
+The same job from a file on disk:
+
+```bash
+python scripts/render_story.py story.wav -o out/story_with_sfx.mp3
+```
+
+That also writes `out/story_with_sfx.json` with the cue times. `out/` is gitignored.
 
 ### `POST /stories/transcribe`
 
@@ -140,7 +162,7 @@ Cue planning uses xAI's [OpenAI-compatible Chat Completions API](https://docs.x.
 - A missing key fails in-process with `XaiNotConfiguredError` and does not open a socket.
 - `grok-4.7` reasons by default. The default HTTP timeout is 60 seconds; set `HTTP_TIMEOUT_SECONDS` higher if planning calls time out.
 
-xAI only chooses which catalog sounds are similar to the story and when they play. It does not download audio. Python drops any id that is not in the catalog, fetches those preview files, and mixes them.
+xAI only chooses which catalog sounds are similar to the story and when they play. It does not download audio and it does not mix. Python drops any id that is not in the catalog, fetches those preview files, and places them on the recording.
 
 The planner is asked for at most twelve cues. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped.
 
@@ -176,15 +198,15 @@ Preview MP3s are what this service mixes. `download_url` in the catalog is FreeS
 
 Set `FREESOUND_CATALOG_ONLY=false` only if you want the old per-cue text search (`GET /apiv2/search/text/`, `Authorization: Token` on the API host, first preview-bearing hit). Catalog mode does not send the token to the preview CDN.
 
-## Run the sample story
-
-`fixtures/deepgram_sample.json` is a Deepgram listen document for a bedtime story about 56 seconds long. To mix an SFX MP3 from it with the real pipeline (xAI cues, then previews from `assets/sfx_catalog/catalog.json`):
+## Render a recording
 
 ```bash
-python tests/run_ingestion.py
+python scripts/render_story.py path/to/story.wav -o out/story_with_sfx.mp3
 ```
 
-That writes `out/story_sfx.mp3` (gitignored) and `out/story_sfx.json` with the cue timestamps. It needs `XAI_API_KEY`. Catalog slots need a `preview_url`; fill those with `python scripts/build_sfx_catalog.py` if they are still empty. The same JSON is what `POST /stories/process` accepts under `deepgram`.
+Or `POST /stories/render` with a multipart `audio` field. Both run the same pipeline: transcribe the file, let xAI pick catalog ids, download those previews, mix them onto the file.
+
+`fixtures/deepgram_sample.json` is a Deepgram listen document for a bedtime story about 56 seconds long. `POST /stories/process` still accepts that JSON under `deepgram` and stores an effects-only MP3. Catalog slots need a `preview_url`; fill those with `python scripts/build_sfx_catalog.py` if they are still empty.
 
 ## Deepgram
 
@@ -242,28 +264,31 @@ External calls are mocked. No API keys and no network:
 pytest
 ```
 
-`tests/test_sample_pipeline.py` is the end-to-end sample. It posts audio to `/transcribe` (`DeepGram.py` talks to Gladia), and it also runs a Deepgram `/v1/listen` response. Both transcripts go through xAI, which returns catalog ids. Python downloads only those FreeSound previews from `assets/sfx_catalog/catalog.json` and mixes the MP3.
+`tests/test_sample_pipeline.py` posts a WAV to `POST /stories/render`. Transcription, xAI, and FreeSound are faked. The mixer is real: the effect is louder only inside its cue, the MP3 length follows the upload (not a longer transcript duration), and the FreeSound client is asked only for that catalog preview URL.
 
-`tests/test_mixer.py` checks timestamp alignment directly: a clip longer than its cue is audible only inside that window, and the timeline length stays equal to the story.
+`tests/test_mixer.py` checks the same alignment on the PCM timeline, before MP3 export, and the effects-only track used by `/stories/process`.
 
 ## Layout
 
 ```
-app/main.py                 create_app, uvicorn entry
+main.py                     uvicorn main:app (re-exports app.main:app)
+app/main.py                 create_app
 app/config.py               pydantic-settings
 app/schemas/deepgram.py     Deepgram JSON -> transcript
 app/schemas/sfx.py          cue schema and alignment
-app/services/xai.py        xAI Chat Completions client
-app/services/freesound.py   catalog match + preview download
+app/services/xai.py         xAI Chat Completions client
+app/services/freesound.py   catalog preview download
 app/services/sfx_catalog.py catalog load, match, and builder ranking
+app/services/transcribe.py  Deepgram, or Gladia when that key is the one set
+app/services/mixer.py       effects on the recording, or an effects-only track
+app/services/pipeline.py    planning, download, and mix
+app/services/deepgram.py    prerecorded POST /v1/listen
+DeepGram.py                 Gladia upload + poll
 assets/sfx_catalog/catalog.json  fixed kids-book sound slots
 scripts/build_sfx_catalog.py     one-shot FreeSound fill for those slots
-tests/run_ingestion.py           sample Deepgram JSON -> SFX MP3 via the pipeline
-app/services/mixer.py       silence + overlays -> MP3 bytes
-app/services/pipeline.py    wires planning, download, and mix
-app/services/deepgram.py   prerecorded POST /v1/listen
+scripts/render_story.py          audio file -> mixed MP3
 app/services/store.py       Supabase table + Storage
-app/api/routes.py           /stories and /health
+app/api/routes.py           /stories/render, /stories/process, /health
 supabase/schema.sql         recordings table and story-sfx bucket
 fixtures/deepgram_sample.json
 ```

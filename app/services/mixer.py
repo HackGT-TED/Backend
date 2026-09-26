@@ -1,15 +1,17 @@
-"""Build an SFX-only timeline and export it as MP3.
+"""Place catalog clips on a story clock and export MP3.
 
 Mixing writes a temporary file (the system temp directory, ``/tmp`` on Vercel)
 and returns the bytes. Callers upload those bytes; nothing is kept on local disk.
 
-The timeline is silence of the story duration, with each clip overlaid at the
-cue's start timestamp and trimmed so it cannot spill past the cue end or the
-story end. Export uses pydub, which shells out to ffmpeg (libmp3lame). WAV
-bytes are decoded in-process. MP3 and OGG previews are decoded with ffmpeg.
-A system ``ffmpeg`` on ``PATH`` is used when present. Otherwise the
-``imageio-ffmpeg`` binary is used so a Vercel function can mix without a
-system package.
+``mix_sfx_bytes`` builds silence the length of the story and overlays each clip.
+``mix_on_story_bytes`` overlays the same clips on the uploaded recording, ducked
+so the narration stays in front. Each clip is trimmed so it cannot spill past
+the cue end or the story end.
+
+Export uses pydub, which shells out to ffmpeg (libmp3lame). WAV bytes are
+decoded in-process. MP3 and OGG previews are decoded with ffmpeg. A system
+``ffmpeg`` on ``PATH`` is used when present. Otherwise the ``imageio-ffmpeg``
+binary is used so a Vercel function can mix without a system package.
 """
 
 import io
@@ -24,6 +26,8 @@ from pydub import AudioSegment
 _FRAME_RATE = 44100
 _MIN_WINDOW_MS = 50
 _FADE_MS = 10
+# Keep the grandparent's voice in front of the effect.
+_SFX_GAIN_DB = -8
 
 
 class AudioMixError(RuntimeError):
@@ -56,25 +60,69 @@ def mix_sfx_mp3(clips: list[TimedClip], duration_ms: int, output_path: Path) -> 
     return export_mp3(timeline, output_path)
 
 
+def mix_on_story_bytes(story_bytes: bytes, clips: list[TimedClip]) -> bytes:
+    """Overlay ducked effects on the recording and return MP3 bytes."""
+
+    with tempfile.TemporaryDirectory(prefix="story-sfx-") as directory:
+        path = Path(directory) / "story.mp3"
+        mix_on_story_mp3(story_bytes, clips, path)
+        return path.read_bytes()
+
+
+def mix_on_story_mp3(story_bytes: bytes, clips: list[TimedClip], output_path: Path) -> Path:
+    """Write the recording with effects placed at each cue's start time."""
+
+    return export_mp3(overlay_on_story(story_bytes, clips), output_path)
+
+
+def story_duration_ms(story_bytes: bytes) -> int:
+    """Decoded length of the uploaded recording. This is the mix clock."""
+
+    return max(len(load_clip(story_bytes)), 1)
+
+
 def place_clips(clips: list[TimedClip], duration_ms: int) -> AudioSegment:
     """Overlay clips on a silent timeline. Length is exactly ``duration_ms``."""
 
     duration_ms = max(int(duration_ms), 1)
     timeline = AudioSegment.silent(duration=duration_ms, frame_rate=_FRAME_RATE)
+    return _overlay_clips(timeline, clips, duration_ms)
+
+
+def overlay_on_story(story_bytes: bytes, clips: list[TimedClip]) -> AudioSegment:
+    """Place ducked clips on the decoded recording. Length matches that recording."""
+
+    story = load_clip(story_bytes)
+    duration_ms = max(len(story), 1)
+    return _overlay_clips(story, clips, duration_ms, gain_db=_SFX_GAIN_DB)
+
+
+def _overlay_clips(
+    timeline: AudioSegment,
+    clips: list[TimedClip],
+    duration_ms: int,
+    gain_db: float = 0,
+) -> AudioSegment:
     for clip in clips:
         placed = _prepare_clip(clip, timeline, duration_ms)
         if placed is None:
             continue
         audio, start_ms = placed
+        if gain_db:
+            audio = audio.apply_gain(gain_db)
         timeline = timeline.overlay(audio, position=start_ms)
+    return _fit_length(timeline, duration_ms)
+
+
+def _fit_length(timeline: AudioSegment, duration_ms: int) -> AudioSegment:
     if len(timeline) > duration_ms:
-        timeline = timeline[:duration_ms]
-    elif len(timeline) < duration_ms:
+        return timeline[:duration_ms]
+    if len(timeline) < duration_ms:
         pad = AudioSegment.silent(
             duration=duration_ms - len(timeline),
             frame_rate=timeline.frame_rate,
         )
-        timeline += pad
+        return timeline + pad
     return timeline
 
 

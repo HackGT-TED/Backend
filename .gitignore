@@ -35,5 +35,5 @@ build/
 assets/sfx_catalog/previews/*
 !assets/sfx_catalog/previews/.gitkeep
 
-# MP3 written by tests/run_ingestion.py
+# MP3 written by scripts/render_story.py
 out/

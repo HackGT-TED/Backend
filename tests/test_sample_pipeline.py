@@ -1,26 +1,190 @@
-"""Sample wiring: transcription -> xAI catalog ids -> those FreeSound previews -> MP3.
+"""Audio in, lined-up audio out.
 
-External APIs are mocked. The test still runs the real modules: ``DeepGram.py``
-(Gladia upload + poll), the Deepgram listen client, xAI chat completions, the
-checked-in catalog, and the mixer.
+``POST /stories/render`` transcribes the upload, asks xAI for catalog ids, downloads
+only those FreeSound previews, and mixes them onto the same bytes. Gladia is
+covered as the fallback transcriber. No live network calls.
 """
 
-import base64
+import io
 import json
 
 import httpx
 import requests
 from fastapi.testclient import TestClient
+from pydub import AudioSegment
 
 from app.config import Settings
-from app.schemas.deepgram import DeepgramTranscript
-from app.services.deepgram import HttpDeepgramClient
+from app.main import create_app
+from app.schemas.sfx import SfxCue
 from app.services.freesound import HttpFreeSoundClient
-from app.services.gladia_transcript import normalize_gladia
-from app.services.pipeline import run_pipeline
 from app.services.sfx_catalog import CATALOG_PATH, load_catalog
-from app.services.xai import HttpXaiClient
+from app.services.transcribe import transcribe_audio
+from tests.fakes import MemoryRecordingStore
 from tests.wavutil import sine_wav_bytes
+
+
+class _Planner:
+    def __init__(self) -> None:
+        self.duration: float | None = None
+
+    def plan_cues(self, transcript, catalog=None):
+        self.duration = transcript.duration_seconds
+        assert "barked" in transcript.text.lower()
+        assert catalog is not None
+        assert any(item.get("id") == "dog-bark" for item in catalog)
+        return [
+            SfxCue(
+                catalog_id="dog-bark",
+                description="The dog barks.",
+                start=1.0,
+                end=2.0,
+            )
+        ]
+
+
+class _Deepgram:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+        self.audio: list[tuple[int, str]] = []
+
+    def transcribe_url(self, url: str) -> dict:
+        raise AssertionError(f"render should send bytes, not a URL ({url})")
+
+    def transcribe_bytes(self, audio: bytes, content_type: str) -> dict:
+        self.audio.append((len(audio), content_type))
+        return self.payload
+
+
+def test_render_lines_the_effect_up_on_the_uploaded_audio():
+    story = sine_wav_bytes(3_000, frequency=220, amplitude=0.2)
+    fetched: list[str] = []
+
+    def freesound_handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        assert "/apiv2/search" not in url
+        assert "authorization" not in {key.lower() for key in request.headers}
+        assert url == _preview("dog-bark")
+        fetched.append(url)
+        return httpx.Response(200, content=sine_wav_bytes(2_000, frequency=1400, amplitude=0.95))
+
+    planner = _Planner()
+    deepgram = _Deepgram(_listen_payload(duration=9.0))
+    store = MemoryRecordingStore()
+    settings = Settings(
+        deepgram_api_key="dg-test",
+        xai_api_key="xai-test",
+        freesound_catalog_only=True,
+        sfx_catalog_path=str(CATALOG_PATH),
+        supabase_url="https://example.supabase.co",
+        supabase_service_role_key="service-role-test",
+    )
+    with httpx.Client(transport=httpx.MockTransport(freesound_handler)) as http:
+        app = create_app(
+            settings=settings,
+            xai_client=planner,
+            freesound_client=HttpFreeSoundClient(settings, http=http),
+            deepgram_client=deepgram,
+            store=store,
+        )
+        with TestClient(app) as client:
+            response = client.post(
+                "/stories/render",
+                files={"audio": ("story.wav", story, "audio/wav")},
+            )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("audio/mpeg")
+    assert response.headers["content-disposition"] == 'attachment; filename="story_with_sfx.mp3"'
+    assert deepgram.audio == [(len(story), "audio/wav")]
+    assert fetched == [_preview("dog-bark")]
+    assert planner.duration == 3.0
+    assert store.rows == {}
+    assert float(response.headers["x-story-duration-seconds"]) == 3.0
+
+    mixed = AudioSegment.from_mp3(io.BytesIO(response.content))
+    assert abs(len(mixed) - 3_000) < 500
+    quiet = mixed[200:800].rms
+    bark = mixed[1200:1800].rms
+    assert quiet > 80
+    assert bark > quiet * 1.15
+
+
+def test_render_requires_a_transcriber_key():
+    settings = Settings(
+        deepgram_api_key="",
+        gladia_api_key="",
+        xai_api_key="xai-test",
+        supabase_url="https://example.supabase.co",
+        supabase_service_role_key="service-role-test",
+    )
+    app = create_app(
+        settings=settings,
+        xai_client=_Planner(),
+        freesound_client=_UnusedFreeSound(),
+        deepgram_client=_Deepgram({}),
+        store=MemoryRecordingStore(),
+    )
+    story = sine_wav_bytes(500, frequency=220, amplitude=0.2)
+    with TestClient(app) as client:
+        response = client.post(
+            "/stories/render",
+            files={"audio": ("story.wav", story, "audio/wav")},
+        )
+    assert response.status_code == 503
+    assert "DEEPGRAM_API_KEY" in response.json()["detail"]
+
+
+def test_gladia_fallback_becomes_the_same_transcript(monkeypatch):
+    monkeypatch.setenv("GLADIA_API_KEY", "gladia-test")
+    calls = {"posts": [], "gets": []}
+
+    def post(url, **kwargs):
+        calls["posts"].append(url)
+        assert kwargs["headers"]["x-gladia-key"] == "gladia-test"
+        if url.endswith("/upload"):
+            return _Response({"audio_url": "https://api.gladia.io/file/story"})
+        assert url.endswith("/pre-recorded")
+        return _Response({"result_url": "https://api.gladia.io/v2/pre-recorded/job-1"})
+
+    def get(url, **kwargs):
+        calls["gets"].append(url)
+        return _Response(
+            {
+                "status": "done",
+                "result": {"transcription": {"utterances": _UTTERANCES}},
+            }
+        )
+
+    monkeypatch.setattr("DeepGram.requests.post", post)
+    monkeypatch.setattr("DeepGram.requests.get", get)
+
+    class _UnusedDeepgram:
+        def transcribe_url(self, url: str) -> dict:
+            raise AssertionError("Gladia fallback must not call Deepgram")
+
+        def transcribe_bytes(self, audio: bytes, content_type: str) -> dict:
+            raise AssertionError("Gladia fallback must not call Deepgram")
+
+    audio = b"not-real-audio"
+    document = transcribe_audio(
+        Settings(gladia_api_key="gladia-test", deepgram_api_key=""),
+        _UnusedDeepgram(),
+        audio,
+        "audio/mp4",
+        "story.m4a",
+    )
+    from app.schemas.deepgram import DeepgramTranscript
+
+    transcript = DeepgramTranscript.model_validate(document).normalized()
+    assert calls["posts"] == [
+        "https://api.gladia.io/v2/upload",
+        "https://api.gladia.io/v2/pre-recorded",
+    ]
+    assert calls["gets"] == ["https://api.gladia.io/v2/pre-recorded/job-1"]
+    assert transcript.text == "The dog barked at the creaky door."
+    assert transcript.words[1].word == "dog"
+    assert transcript.words[1].start == 0.4
+
 
 _UTTERANCES = [
     {
@@ -42,71 +206,14 @@ _UTTERANCES = [
 ]
 
 
-def test_gladia_transcribe_then_mixes_only_the_catalog_sounds(monkeypatch):
-    monkeypatch.setenv("GLADIA_API_KEY", "gladia-test")
-    calls = {"posts": [], "gets": []}
-
-    def post(url, **kwargs):
-        calls["posts"].append(url)
-        assert kwargs["headers"]["x-gladia-key"] == "gladia-test"
-        if url.endswith("/upload"):
-            return _Response({"audio_url": "https://api.gladia.io/file/story"})
-        assert url.endswith("/pre-recorded")
-        body = kwargs["json"]
-        assert body["audio_url"] == "https://api.gladia.io/file/story"
-        return _Response({"result_url": "https://api.gladia.io/v2/pre-recorded/job-1"})
-
-    def get(url, **kwargs):
-        calls["gets"].append(url)
-        assert kwargs["headers"]["x-gladia-key"] == "gladia-test"
-        return _Response(
-            {
-                "status": "done",
-                "result": {"transcription": {"utterances": _UTTERANCES}},
-            }
-        )
-
-    monkeypatch.setattr("DeepGram.requests.post", post)
-    monkeypatch.setattr("DeepGram.requests.get", get)
-
-    from main import app
-
-    audio = base64.b64encode(b"not-real-audio").decode("ascii")
-    with TestClient(app) as client:
-        response = client.post(
-            "/transcribe",
-            json={
-                "filename": "story.m4a",
-                "content_type": "audio/mp4",
-                "audio_base64": audio,
-                "size_bytes": 14,
-            },
-        )
-    assert response.status_code == 200
-    utterances = response.json()
-    assert isinstance(utterances, list)
-    assert calls["posts"] == [
-        "https://api.gladia.io/v2/upload",
-        "https://api.gladia.io/v2/pre-recorded",
-    ]
-    assert calls["gets"] == ["https://api.gladia.io/v2/pre-recorded/job-1"]
-
-    transcript = normalize_gladia(utterances)
-    assert transcript.text == "The dog barked at the creaky door."
-    assert transcript.words[1].word == "dog"
-    assert transcript.words[1].start == 0.4
-    assert transcript.duration_seconds == 2.6
-
-    output, fetched = _mix_with_mocked_xai_and_catalog(transcript)
-    assert fetched == [_preview("dog-bark"), _preview("door-creak")]
-    assert output.duration_seconds == 2.6
-    assert [cue.catalog_id for cue in output.cues] == ["dog-bark", "door-creak"]
-    assert output.audio_bytes[:3] == b"ID3" or output.audio_bytes[0] == 0xFF
+class _UnusedFreeSound:
+    def download_for_query(self, query: str):
+        raise AssertionError(f"should not download {query}")
 
 
-def test_deepgram_listen_json_uses_the_same_mix():
-    payload = {
-        "metadata": {"duration": 3.0, "channels": 1, "models": ["nova-3"]},
+def _listen_payload(duration: float) -> dict:
+    return {
+        "metadata": {"duration": duration, "channels": 1, "models": ["nova-3"]},
         "results": {
             "channels": [
                 {
@@ -114,95 +221,19 @@ def test_deepgram_listen_json_uses_the_same_mix():
                         {
                             "transcript": "The dog barked.",
                             "words": [
-                                {"word": "the", "start": 0.1, "end": 0.3, "punctuated_word": "The"},
-                                {"word": "dog", "start": 0.3, "end": 0.7, "punctuated_word": "dog"},
-                                {"word": "barked", "start": 0.7, "end": 1.2, "punctuated_word": "barked."},
+                                {"word": "the", "start": 0.2, "end": 0.4, "punctuated_word": "The"},
+                                {"word": "dog", "start": 0.5, "end": 0.9, "punctuated_word": "dog"},
+                                {"word": "barked", "start": 1.0, "end": 1.8, "punctuated_word": "barked."},
                             ],
                         }
                     ]
                 }
             ],
             "utterances": [
-                {"start": 0.1, "end": 1.2, "transcript": "The dog barked.", "confidence": 0.99}
+                {"start": 0.2, "end": 1.8, "transcript": "The dog barked.", "confidence": 0.99}
             ],
         },
     }
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/v1/listen"
-        assert request.headers["authorization"] == "Token dg-key"
-        assert json.loads(request.content) == {"url": "https://example.test/story.m4a"}
-        return httpx.Response(200, json=payload)
-
-    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
-        listened = HttpDeepgramClient(
-            Settings(deepgram_api_key="dg-key", deepgram_base_url="https://api.deepgram.com"),
-            http=http,
-        ).transcribe_url("https://example.test/story.m4a")
-
-    transcript = DeepgramTranscript.model_validate(listened).normalized()
-    output, fetched = _mix_with_mocked_xai_and_catalog(transcript)
-    assert fetched == [_preview("dog-bark")]
-    assert output.duration_seconds == 3.0
-    assert output.cues[0].catalog_id == "dog-bark"
-
-
-def _mix_with_mocked_xai_and_catalog(transcript):
-    fetched: list[str] = []
-
-    def xai_handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path.endswith("/chat/completions")
-        assert request.headers["authorization"] == "Bearer xai-test"
-        body = json.loads(request.content)
-        user = json.loads(body["messages"][1]["content"])
-        ids = {item["id"] for item in user["catalog"]}
-        assert {"dog-bark", "door-creak"} <= ids
-        cues = []
-        text = user["transcript"].lower()
-        if "dog" in text or "bark" in text:
-            cues.append(
-                {
-                    "catalog_id": "dog-bark",
-                    "description": "The dog barks.",
-                    "start": 0.4,
-                    "end": 1.3,
-                }
-            )
-        if "door" in text:
-            cues.append(
-                {
-                    "catalog_id": "door-creak",
-                    "description": "The door.",
-                    "start": 1.7,
-                    "end": 2.6,
-                }
-            )
-        return httpx.Response(
-            200,
-            json={"choices": [{"message": {"content": json.dumps({"cues": cues})}}]},
-        )
-
-    allowed = {_preview("dog-bark"), _preview("door-creak")}
-
-    def freesound_handler(request: httpx.Request) -> httpx.Response:
-        url = str(request.url)
-        assert "/apiv2/search" not in url
-        assert "authorization" not in {key.lower() for key in request.headers}
-        assert url in allowed
-        fetched.append(url)
-        return httpx.Response(200, content=sine_wav_bytes(400, frequency=523))
-
-    xai_settings = Settings(xai_api_key="xai-test", xai_base_url="https://api.x.ai/v1", xai_model="grok-4.7")
-    fs_settings = Settings(freesound_catalog_only=True, sfx_catalog_path=str(CATALOG_PATH), freesound_api_key="")
-    with httpx.Client(transport=httpx.MockTransport(xai_handler)) as xai_http, httpx.Client(
-        transport=httpx.MockTransport(freesound_handler)
-    ) as fs_http:
-        output = run_pipeline(
-            transcript,
-            HttpXaiClient(xai_settings, http=xai_http),
-            HttpFreeSoundClient(fs_settings, http=fs_http),
-        )
-    return output, fetched
 
 
 def _preview(slot_id: str) -> str:

@@ -14,10 +14,16 @@ from app.schemas.deepgram import DeepgramTranscript, NormalizedTranscript
 def normalize_gladia(payload: str | list | dict) -> NormalizedTranscript:
     """Accept a JSON string, an utterance list, or a full Gladia result body."""
 
+    return DeepgramTranscript.model_validate(gladia_to_listen_document(payload)).normalized()
+
+
+def gladia_to_listen_document(payload: str | list | dict) -> dict:
+    """Gladia utterances as the Deepgram listen JSON the rest of the pipeline reads."""
+
     utterances = _utterances(payload)
     if not utterances:
         raise ValueError("Gladia transcript has no utterances")
-    return DeepgramTranscript.model_validate(_deepgram_document(utterances)).normalized()
+    return _deepgram_document(utterances)
 
 
 def _utterances(payload: str | list | dict) -> list[dict]:
