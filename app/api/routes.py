@@ -1,5 +1,6 @@
 """Story routes: process a transcript, list recordings, serve the SFX MP3."""
 
+import json
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
@@ -44,7 +45,7 @@ def process_story(
         payload = body.deepgram_payload()
         transcript = DeepgramTranscript.model_validate(payload).normalized()
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+        raise HTTPException(status_code=422, detail=json.loads(exc.json())) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
