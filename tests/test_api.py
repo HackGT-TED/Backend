@@ -468,3 +468,58 @@ def test_transcribe_multipart_audio_uses_bytes():
         assert response.status_code == 200
         assert response.json()["words"][0]["word"] == "The"
     assert deepgram.audio == [(len(b"RIFFfake-wav"), "audio/wav")]
+
+
+def _describe_client():
+    deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
+    xai = _CatalogXai(StoryBlurb(description="Rain on the roof.", hashtags=["calm"]))
+    client, _store = _client(xai, FakeFreeSound(), deepgram, settings=_settings(deepgram_api_key="dg-test"))
+    return client, deepgram
+
+
+def test_several_audio_files_are_joined_into_one_recording():
+    """A story's moments arrive as repeated audio fields and are transcribed once, together."""
+
+    client, deepgram = _describe_client()
+    with client:
+        response = client.post(
+            "/stories/describe",
+            files=[
+                ("audio", ("moment-1.wav", sine_wav_bytes(600), "audio/wav")),
+                ("audio", ("moment-2.wav", sine_wav_bytes(600, frequency=880), "audio/wav")),
+            ],
+        )
+    assert response.status_code == 200
+    assert response.json()["audio"] == "story.mp3"
+    assert len(deepgram.audio) == 1
+    assert deepgram.audio[0][1] == "audio/mpeg"
+
+
+def test_an_undecodable_moment_is_named_in_a_422():
+    client, deepgram = _describe_client()
+    with client:
+        response = client.post(
+            "/stories/render",
+            files=[
+                ("audio", ("moment-1.wav", sine_wav_bytes(300), "audio/wav")),
+                ("audio", ("moment-2.m4a", b"broken", "audio/mp4")),
+            ],
+        )
+    assert response.status_code == 422
+    assert "Audio file 2" in response.json()["detail"]
+    assert deepgram.audio == []
+
+
+def test_the_size_limit_covers_all_moments_together(monkeypatch):
+    from app.api import routes
+
+    part = sine_wav_bytes(300)
+    monkeypatch.setattr(routes, "_MAX_AUDIO_BYTES", len(part) + 10)
+    client, deepgram = _describe_client()
+    with client:
+        response = client.post(
+            "/stories/describe",
+            files=[("audio", ("a.wav", part, "audio/wav")), ("audio", ("b.wav", part, "audio/wav"))],
+        )
+    assert response.status_code == 413
+    assert deepgram.audio == []

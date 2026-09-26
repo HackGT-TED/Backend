@@ -24,7 +24,7 @@ from app.schemas.deepgram import DeepgramTranscript
 from app.schemas.sfx import SfxCue
 from app.services.deepgram import DeepgramAuthError, DeepgramError, DeepgramNotConfiguredError
 from app.services.freesound import FreeSoundNotConfiguredError, FreeSoundRateLimitError
-from app.services.mixer import AudioMixError
+from app.services.mixer import AudioJoinError, AudioMixError, join_audio
 from app.services.pipeline import PipelineOutput, run_pipeline
 from app.services.transcribe import (
     TranscriptionError,
@@ -143,7 +143,7 @@ async def render_story(request: Request) -> Response:
             status_code=422,
             detail="Send multipart form data with an audio file field named audio",
         )
-    data, mime, filename, _meta = await _read_audio_upload(request)
+    data, mime, filename = await _read_story_audio(request)
     output = await run_in_threadpool(_render_upload, request, data, mime, filename)
     return _audio_response(output)
 
@@ -158,7 +158,7 @@ async def describe_story(request: Request) -> StoryDescription:
 
     content_type = request.headers.get("content-type", "")
     if "multipart/form-data" in content_type:
-        data, mime, filename, _meta = await _read_audio_upload(request)
+        data, mime, filename = await _read_story_audio(request)
         return await run_in_threadpool(_describe_upload, request, data, mime, filename)
     if "application/json" in content_type:
         payload = await request.json()
@@ -234,6 +234,42 @@ async def _transcribe_request(request: Request) -> tuple[dict, dict]:
         status_code=422,
         detail="Send a JSON body with url, or multipart form data with an audio file",
     )
+
+
+async def _read_story_audio(request: Request) -> tuple[bytes, str, str]:
+    """Read one or more ``audio`` files, in form order, as a single recording.
+
+    One file passes through unchanged. Several (a story's moments) are joined
+    into one MP3 with a short pause between them. The size limit covers the total.
+    """
+
+    form = await request.form()
+    uploads = [upload for upload in form.getlist("audio") if hasattr(upload, "read")]
+    if not uploads:
+        raise HTTPException(status_code=422, detail="Multipart body must include an audio file field")
+    parts: list[bytes] = []
+    total = 0
+    for index, upload in enumerate(uploads, start=1):
+        data = await upload.read()
+        if not data:
+            detail = "Audio file was empty" if len(uploads) == 1 else f"Audio file {index} was empty"
+            raise HTTPException(status_code=422, detail=detail)
+        total += len(data)
+        if total > _MAX_AUDIO_BYTES:
+            raise HTTPException(status_code=413, detail="Audio file is larger than 25 MB")
+        parts.append(data)
+    if len(parts) == 1:
+        upload = uploads[0]
+        mime = getattr(upload, "content_type", None) or "application/octet-stream"
+        filename = getattr(upload, "filename", None) or "story.audio"
+        return parts[0], mime, filename
+    try:
+        joined = await run_in_threadpool(join_audio, parts)
+    except AudioJoinError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except AudioMixError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return joined, "audio/mpeg", "story.mp3"
 
 
 async def _read_audio_upload(request: Request) -> tuple[bytes, str, str, dict]:

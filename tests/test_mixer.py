@@ -2,10 +2,15 @@
 
 from pydub import AudioSegment
 
+import pytest
+
 from app.services.mixer import (
+    MOMENT_GAP_MS,
     SFX_START_DELAY_MS,
+    AudioJoinError,
     TimedClip,
     effect_gain_db,
+    join_audio,
     load_clip,
     mix_sfx_mp3,
     overlay_on_story,
@@ -153,3 +158,25 @@ def test_empty_cue_list_is_silence_of_the_story_duration():
     timeline = place_clips([], 4_000)
     assert len(timeline) == 4_000
     assert timeline.rms == 0
+
+
+def test_join_audio_keeps_moment_order_with_a_pause_between():
+    """Two moments become one recording: first, a silent gap, then the second."""
+
+    first = sine_wav_bytes(1_000, frequency=440)
+    second = sine_wav_bytes(1_500, frequency=880)
+    joined = load_clip(join_audio([first, second]))
+
+    # MP3 encoding pads slightly, so allow a little slack on the length.
+    expected = 1_000 + MOMENT_GAP_MS + 1_500
+    assert expected - 20 <= len(joined) <= expected + 120
+    assert _rms(joined, 100, 900) > 1_000
+    assert _rms(joined, 1_050, 1_000 + MOMENT_GAP_MS - 50) < 50
+    assert _rms(joined, 1_000 + MOMENT_GAP_MS + 100, expected - 100) > 1_000
+
+
+def test_join_audio_names_the_moment_that_cannot_be_decoded():
+    with pytest.raises(AudioJoinError) as caught:
+        join_audio([sine_wav_bytes(500), b"not audio at all"])
+    assert caught.value.index == 2
+    assert "Audio file 2" in str(caught.value)

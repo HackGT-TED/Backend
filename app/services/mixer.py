@@ -44,6 +44,18 @@ class AudioMixError(RuntimeError):
     """A clip could not be decoded or the MP3 export failed."""
 
 
+class AudioJoinError(AudioMixError):
+    """One of the recordings being joined could not be decoded."""
+
+    def __init__(self, index: int, detail: str) -> None:
+        super().__init__(f"Audio file {index} could not be decoded: {detail}")
+        self.index = index
+
+
+# Pause placed between story moments when several recordings are joined.
+MOMENT_GAP_MS = 300
+
+
 @dataclass(frozen=True)
 class TimedClip:
     """Audio already downloaded, placed on the story clock."""
@@ -83,6 +95,32 @@ def mix_on_story_mp3(story_bytes: bytes, clips: list[TimedClip], output_path: Pa
     """Write the recording with effects placed at each cue's start time."""
 
     return export_mp3(overlay_on_story(story_bytes, clips), output_path)
+
+
+def join_audio(parts: list[bytes]) -> bytes:
+    """Join recordings in order, with ``MOMENT_GAP_MS`` of silence between them.
+
+    Each part may be any format ffmpeg reads (m4a, webm, ogg, mp3, wav). Returns
+    MP3 bytes, so the joined story goes through the same path as one upload.
+    """
+
+    joined: AudioSegment | None = None
+    for index, audio_bytes in enumerate(parts, start=1):
+        try:
+            moment = load_clip(audio_bytes)
+        except AudioMixError as exc:
+            raise AudioJoinError(index, str(exc)) from exc
+        if joined is None:
+            joined = moment
+            continue
+        gap = _match_format(AudioSegment.silent(duration=MOMENT_GAP_MS), joined)
+        joined = joined + gap + _match_format(moment, joined)
+    if joined is None:
+        raise AudioMixError("No audio to join")
+    with tempfile.TemporaryDirectory(prefix="story-join-") as directory:
+        path = Path(directory) / "story.mp3"
+        export_mp3(joined, path)
+        return path.read_bytes()
 
 
 def story_duration_ms(story_bytes: bytes) -> int:

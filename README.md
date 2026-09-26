@@ -97,6 +97,15 @@ curl -sS -X POST http://127.0.0.1:8000/stories/render \
   -o out/story_with_sfx.mp3
 ```
 
+A story recorded in several moments can be sent in one request: repeat the `audio` field once per moment, in playback order. The server joins them into one recording with a 300 ms pause between moments, then transcribes and mixes that. The 25 MB limit covers all the files together. A file that cannot be decoded returns **422** naming it (`Audio file 2 could not be decoded`). A single `audio` field works exactly as before.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/stories/render \
+  -F "audio=@moment-1.m4a;type=audio/m4a" \
+  -F "audio=@moment-2.m4a;type=audio/m4a" \
+  -o out/story_with_sfx.mp3
+```
+
 Needs `XAI_API_KEY` and `DEEPGRAM_API_KEY` (or `GLADIA_API_KEY`). The decoded file length is the clock, so a cue cannot run past the recording. Each effect starts about 150 ms after its cue time, so a bark does not lead the word, and its level follows the narration in that window so it stays under the voice. Response headers: `X-Story-Duration-Seconds`, `X-Story-Cue-Count`, and `X-Story-Warnings` when a cue was skipped.
 
 The same job from a file on disk:
@@ -111,7 +120,7 @@ That also writes `out/story_with_sfx.json` with the cue times, the transcript, a
 
 Transcribe a recording and return catalog metadata. Does not plan cues or mix audio.
 
-Multipart `audio` (25 MB max), or JSON `{"url": "https://.../story.mp3"}`.
+Multipart `audio` (25 MB max; repeat the field for several moments, joined the same way as `/stories/render`), or JSON `{"url": "https://.../story.mp3"}`.
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/stories/describe \
