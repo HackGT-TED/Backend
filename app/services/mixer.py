@@ -4,9 +4,10 @@ Mixing writes a temporary file (the system temp directory, ``/tmp`` on Vercel)
 and returns the bytes. Callers upload those bytes; nothing is kept on local disk.
 
 ``mix_sfx_bytes`` builds silence the length of the story and overlays each clip.
-``mix_on_story_bytes`` overlays the same clips on the uploaded recording, ducked
-so the narration stays in front. Each clip is trimmed so it cannot spill past
-the cue end or the story end.
+``mix_on_story_bytes`` overlays the same clips on the uploaded recording. Each
+effect is delayed slightly past the word start, then leveled so it sits under
+the narration in that window. A clip cannot spill past the delayed cue end or
+the story end.
 
 Export uses pydub, which shells out to ffmpeg (libmp3lame). WAV bytes are
 decoded in-process. MP3 and OGG previews are decoded with ffmpeg. A system
@@ -26,8 +27,17 @@ from pydub import AudioSegment
 _FRAME_RATE = 44100
 _MIN_WINDOW_MS = 50
 _FADE_MS = 10
-# Keep the grandparent's voice in front of the effect.
-_SFX_GAIN_DB = -8
+# Word timestamps are the start of the word. A one-shot that begins there
+# (a bark, a creak) is heard before the word is said.
+SFX_START_DELAY_MS = 150
+# How far under the local narration an effect should sit.
+_SFX_UNDER_VOICE_DB = 12
+# Level used when the cue window has no speech to measure.
+_SFX_QUIET_BED_DBFS = -28
+# Narration quieter than this is treated as a pause.
+_SFX_SILENCE_DBFS = -50
+# Never boost a clip, and never duck it into nothing.
+_SFX_MIN_GAIN_DB = -36
 
 
 class AudioMixError(RuntimeError):
@@ -90,26 +100,48 @@ def place_clips(clips: list[TimedClip], duration_ms: int) -> AudioSegment:
 
 
 def overlay_on_story(story_bytes: bytes, clips: list[TimedClip]) -> AudioSegment:
-    """Place ducked clips on the decoded recording. Length matches that recording."""
+    """Place leveled clips on the decoded recording. Length matches that recording."""
 
     story = load_clip(story_bytes)
     duration_ms = max(len(story), 1)
-    return _overlay_clips(story, clips, duration_ms, gain_db=_SFX_GAIN_DB)
+    return _overlay_clips(story, clips, duration_ms, level_against=story)
+
+
+def effect_gain_db(narration: AudioSegment, effect: AudioSegment) -> float:
+    """Return the gain that keeps ``effect`` under ``narration``.
+
+    Louder speech allows a louder effect, and quieter speech ducks it further.
+    A silent window uses a fixed quiet bed. The result is never positive, so a
+    clip that is already quiet enough is left alone.
+    """
+
+    if len(narration) <= 0 or len(effect) <= 0:
+        return 0.0
+    effect_db = effect.dBFS
+    if effect_db == float("-inf"):
+        return 0.0
+    narration_db = narration.dBFS
+    if narration_db == float("-inf") or narration_db < _SFX_SILENCE_DBFS:
+        target_db = _SFX_QUIET_BED_DBFS
+    else:
+        target_db = narration_db - _SFX_UNDER_VOICE_DB
+    return max(_SFX_MIN_GAIN_DB, min(0.0, target_db - effect_db))
 
 
 def _overlay_clips(
     timeline: AudioSegment,
     clips: list[TimedClip],
     duration_ms: int,
-    gain_db: float = 0,
+    level_against: AudioSegment | None = None,
 ) -> AudioSegment:
     for clip in clips:
         placed = _prepare_clip(clip, timeline, duration_ms)
         if placed is None:
             continue
         audio, start_ms = placed
-        if gain_db:
-            audio = audio.apply_gain(gain_db)
+        if level_against is not None:
+            narration = level_against[start_ms : start_ms + len(audio)]
+            audio = audio.apply_gain(effect_gain_db(narration, audio))
         timeline = timeline.overlay(audio, position=start_ms)
     return _fit_length(timeline, duration_ms)
 
@@ -150,8 +182,8 @@ def _prepare_clip(
     timeline: AudioSegment,
     duration_ms: int,
 ) -> tuple[AudioSegment, int] | None:
-    start_ms = max(0, int(clip.start_ms))
-    end_ms = min(duration_ms, int(clip.end_ms))
+    start_ms = max(0, int(clip.start_ms)) + SFX_START_DELAY_MS
+    end_ms = min(duration_ms, int(clip.end_ms) + SFX_START_DELAY_MS)
     window = end_ms - start_ms
     if window < _MIN_WINDOW_MS or start_ms >= duration_ms:
         return None

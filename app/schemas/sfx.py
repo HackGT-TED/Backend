@@ -89,6 +89,57 @@ class SfxPlan(BaseModel):
     cues: list[SfxCue] = Field(default_factory=list)
 
 
+def limit_to_one_cue_per_sentence(
+    cues: list[SfxCue],
+    windows: list[tuple[float, float]],
+) -> list[SfxCue]:
+    """Keep the earliest cue in each sentence window.
+
+    ``windows`` are ``(start_seconds, end_seconds)`` for each sentence. A cue
+    that falls between sentences counts toward the nearest one. When no
+    sentence times are available, only the earliest cue is kept.
+    """
+
+    usable: list[tuple[int, SfxCue]] = []
+    for cue in cues:
+        try:
+            start_ms, _end_ms = cue.window_ms()
+        except ValueError:
+            continue
+        usable.append((start_ms, cue))
+    usable.sort(key=lambda item: item[0])
+    if not usable:
+        return []
+    if len(usable) == 1:
+        return [usable[0][1]]
+    if not windows:
+        return [usable[0][1]]
+
+    used: set[int] = set()
+    kept: list[SfxCue] = []
+    for start_ms, cue in usable:
+        index = _window_index(start_ms / 1000, windows)
+        if index in used:
+            continue
+        used.add(index)
+        kept.append(cue)
+    return kept
+
+
+def _window_index(start_s: float, windows: list[tuple[float, float]]) -> int:
+    for index, (begin, end) in enumerate(windows):
+        if begin <= start_s <= end:
+            return index
+    best = 0
+    best_dist = float("inf")
+    for index, (begin, end) in enumerate(windows):
+        dist = begin - start_s if start_s < begin else start_s - end
+        if dist < best_dist:
+            best_dist = dist
+            best = index
+    return best
+
+
 def align_cues(cues: list[SfxCue], duration_seconds: float) -> list[SfxCue]:
     """Clamp cue windows to the story timeline and drop windows that are too short."""
 
