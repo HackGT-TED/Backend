@@ -1,0 +1,95 @@
+{
+  "metadata": {
+    "request_id": "8f3c1c2a-6b1e-4d5a-9c77-0b1a2c3d4e5f",
+    "transaction_key": "deprecated",
+    "sha256": "example-not-a-real-hash",
+    "created": "2026-09-26T02:00:00.000Z",
+    "duration": 8.5,
+    "channels": 1,
+    "models": ["nova-2"],
+    "model_info": {
+      "nova-2": {
+        "name": "nova-2",
+        "version": "2024-01-09.29447",
+        "arch": "nova"
+      }
+    }
+  },
+  "results": {
+    "channels": [
+      {
+        "alternatives": [
+          {
+            "transcript": "Once upon a time the rain began to fall. Grandma opened the creaky door and a little bird sang hello.",
+            "confidence": 0.987,
+            "words": [
+              {"word": "once", "start": 0.0, "end": 0.32, "confidence": 0.99, "speaker": 0, "punctuated_word": "Once"},
+              {"word": "upon", "start": 0.32, "end": 0.55, "confidence": 0.99, "speaker": 0, "punctuated_word": "upon"},
+              {"word": "a", "start": 0.55, "end": 0.7, "confidence": 0.99, "speaker": 0, "punctuated_word": "a"},
+              {"word": "time", "start": 0.7, "end": 1.05, "confidence": 0.99, "speaker": 0, "punctuated_word": "time"},
+              {"word": "the", "start": 1.1, "end": 1.28, "confidence": 0.98, "speaker": 0, "punctuated_word": "the"},
+              {"word": "rain", "start": 1.28, "end": 1.7, "confidence": 0.99, "speaker": 0, "punctuated_word": "rain"},
+              {"word": "began", "start": 1.7, "end": 2.05, "confidence": 0.97, "speaker": 0, "punctuated_word": "began"},
+              {"word": "to", "start": 2.05, "end": 2.2, "confidence": 0.99, "speaker": 0, "punctuated_word": "to"},
+              {"word": "fall", "start": 2.2, "end": 2.6, "confidence": 0.99, "speaker": 0, "punctuated_word": "fall."},
+              {"word": "grandma", "start": 3.4, "end": 3.9, "confidence": 0.96, "speaker": 0, "punctuated_word": "Grandma"},
+              {"word": "opened", "start": 3.9, "end": 4.4, "confidence": 0.98, "speaker": 0, "punctuated_word": "opened"},
+              {"word": "the", "start": 4.4, "end": 4.55, "confidence": 0.99, "speaker": 0, "punctuated_word": "the"},
+              {"word": "creaky", "start": 4.55, "end": 5.05, "confidence": 0.94, "speaker": 0, "punctuated_word": "creaky"},
+              {"word": "door", "start": 5.05, "end": 5.5, "confidence": 0.99, "speaker": 0, "punctuated_word": "door"},
+              {"word": "and", "start": 5.6, "end": 5.8, "confidence": 0.99, "speaker": 0, "punctuated_word": "and"},
+              {"word": "a", "start": 5.8, "end": 5.95, "confidence": 0.99, "speaker": 0, "punctuated_word": "a"},
+              {"word": "little", "start": 5.95, "end": 6.3, "confidence": 0.98, "speaker": 0, "punctuated_word": "little"},
+              {"word": "bird", "start": 6.3, "end": 6.7, "confidence": 0.99, "speaker": 0, "punctuated_word": "bird"},
+              {"word": "sang", "start": 6.7, "end": 7.1, "confidence": 0.97, "speaker": 0, "punctuated_word": "sang"},
+              {"word": "hello", "start": 7.1, "end": 7.6, "confidence": 0.99, "speaker": 0, "punctuated_word": "hello."}
+            ],
+            "paragraphs": {
+              "transcript": "Once upon a time the rain began to fall. Grandma opened the creaky door and a little bird sang hello.",
+              "paragraphs": [
+                {
+                  "sentences": [
+                    {
+                      "text": "Once upon a time the rain began to fall.",
+                      "start": 0.0,
+                      "end": 2.6
+                    },
+                    {
+                      "text": "Grandma opened the creaky door and a little bird sang hello.",
+                      "start": 3.4,
+                      "end": 7.6
+                    }
+                  ],
+                  "num_words": 20,
+                  "start": 0.0,
+                  "end": 7.6,
+                  "speaker": 0
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "utterances": [
+      {
+        "start": 0.0,
+        "end": 2.6,
+        "confidence": 0.98,
+        "channel": 0,
+        "transcript": "Once upon a time the rain began to fall.",
+        "id": "utt-1",
+        "speaker": 0
+      },
+      {
+        "start": 3.4,
+        "end": 7.6,
+        "confidence": 0.97,
+        "channel": 0,
+        "transcript": "Grandma opened the creaky door and a little bird sang hello.",
+        "id": "utt-2",
+        "speaker": 0
+      }
+    ]
+  }
+}
