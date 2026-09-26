@@ -5,6 +5,7 @@ Story requests never call this. Run it once (and again after you reject a slot):
     python scripts/build_sfx_catalog.py
     python scripts/build_sfx_catalog.py --refresh
     python scripts/build_sfx_catalog.py --no-download
+    python scripts/build_sfx_catalog.py --push
 
 Requires ``FREESOUND_API_KEY`` in the environment or in ``.env``. The token is
 sent only to the FreeSound API host. Preview files are written under
@@ -53,6 +54,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Update catalog.json without writing preview MP3s.",
     )
     parser.add_argument("--sleep", type=float, default=0.4, help="Seconds to wait between searches.")
+    parser.add_argument(
+        "--push",
+        action="store_true",
+        help="After writing the file, store it as the active sfx_catalog row in Supabase.",
+    )
     args = parser.parse_args(argv)
 
     _load_dotenv(ROOT / ".env")
@@ -106,7 +112,28 @@ def main(argv: list[str] | None = None) -> int:
 
     catalog_path.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {catalog_path}")
+    if args.push and _push_catalog(catalog):
+        failures += 1
     return 1 if failures else 0
+
+
+def _push_catalog(catalog: dict) -> bool:
+    """Store the catalog JSON. Return True when that save failed."""
+
+    from app.config import Settings
+    from app.services.catalog_store import save_active_catalog
+    from app.services.store import SupabaseError
+
+    try:
+        record = save_active_catalog(catalog, Settings())
+    except (SupabaseError, ValueError, OSError) as exc:
+        print(
+            f"catalog file was written, but Supabase save failed: {exc}",
+            file=sys.stderr,
+        )
+        return True
+    print(f"stored sfx_catalog id={record.id} version={record.version}")
+    return False
 
 
 def _reserved_ids(entries: list[dict], *, refresh: bool) -> set[int]:

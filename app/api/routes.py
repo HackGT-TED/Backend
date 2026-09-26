@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import NoReturn
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from starlette.concurrency import run_in_threadpool
 from pydantic import ValidationError
 
@@ -24,7 +24,12 @@ from app.schemas.sfx import SfxCue
 from app.services.deepgram import DeepgramAuthError, DeepgramError, DeepgramNotConfiguredError
 from app.services.freesound import FreeSoundNotConfiguredError, FreeSoundRateLimitError
 from app.services.mixer import AudioMixError
-from app.services.pipeline import run_pipeline
+from app.services.pipeline import PipelineOutput, run_pipeline
+from app.services.transcribe import (
+    TranscriptionError,
+    TranscriptionNotConfiguredError,
+    transcribe_audio,
+)
 from app.services.store import (
     RecordingRecord,
     RecordingStore,
@@ -50,6 +55,7 @@ def process_story(request: Request, body: ProcessStoryRequest) -> RecordingDetai
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    catalog = _catalog(request)
     store = _store(request)
     now = datetime.now(timezone.utc)
     record = RecordingRecord(
@@ -73,6 +79,7 @@ def process_story(request: Request, body: ProcessStoryRequest) -> RecordingDetai
             transcript,
             request.app.state.xai,
             request.app.state.freesound,
+            catalog=catalog,
         )
     except (XaiNotConfiguredError, XaiAuthError) as exc:
         _mark_failed(store, record, exc)
@@ -119,6 +126,25 @@ async def transcribe_story(request: Request) -> TranscriptOut:
 
     raw, _meta = await _transcribe_request(request)
     return _transcript_out(raw)
+
+
+@router.post("/render")
+async def render_story(request: Request) -> Response:
+    """Upload a recording and get it back with catalog effects lined up on that audio.
+
+    Does not write a Supabase row. The response body is the mixed MP3. Its
+    length is the decoded upload, and each effect starts at the cue time from
+    the transcript of those same bytes.
+    """
+
+    if "multipart/form-data" not in request.headers.get("content-type", ""):
+        raise HTTPException(
+            status_code=422,
+            detail="Send multipart form data with an audio file field named audio",
+        )
+    data, mime, filename, _meta = await _read_audio_upload(request)
+    output = await run_in_threadpool(_render_upload, request, data, mime, filename)
+    return _audio_response(output)
 
 
 @router.post("/process-audio", response_model=RecordingDetail, status_code=201)
@@ -174,23 +200,81 @@ async def _transcribe_request(request: Request) -> tuple[dict, dict]:
         raw = _call_deepgram(lambda: request.app.state.deepgram.transcribe_url(url.strip()))
         return raw, payload
     if "multipart/form-data" in content_type:
-        form = await request.form()
-        upload = form.get("audio")
-        if upload is None or not hasattr(upload, "read"):
-            raise HTTPException(status_code=422, detail="Multipart body must include an audio file field")
-        data = await upload.read()
-        if not data:
-            raise HTTPException(status_code=422, detail="Audio file was empty")
-        if len(data) > _MAX_AUDIO_BYTES:
-            raise HTTPException(status_code=413, detail="Audio file is larger than 25 MB")
-        mime = getattr(upload, "content_type", None) or "application/octet-stream"
+        data, mime, _filename, meta = await _read_audio_upload(request)
         raw = _call_deepgram(lambda: request.app.state.deepgram.transcribe_bytes(data, mime))
-        meta = {key: form.get(key) for key in ("story_id", "title", "narrator", "source_audio_url", "url")}
         return raw, meta
     raise HTTPException(
         status_code=422,
         detail="Send a JSON body with url, or multipart form data with an audio file",
     )
+
+
+async def _read_audio_upload(request: Request) -> tuple[bytes, str, str, dict]:
+    form = await request.form()
+    upload = form.get("audio")
+    if upload is None or not hasattr(upload, "read"):
+        raise HTTPException(status_code=422, detail="Multipart body must include an audio file field")
+    data = await upload.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="Audio file was empty")
+    if len(data) > _MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Audio file is larger than 25 MB")
+    mime = getattr(upload, "content_type", None) or "application/octet-stream"
+    filename = getattr(upload, "filename", None) or "story.audio"
+    meta = {key: form.get(key) for key in ("story_id", "title", "narrator", "source_audio_url", "url")}
+    return data, mime, filename, meta
+
+
+def _render_upload(request: Request, data: bytes, mime: str, filename: str) -> PipelineOutput:
+    try:
+        raw = transcribe_audio(
+            request.app.state.settings,
+            request.app.state.deepgram,
+            data,
+            mime,
+            filename,
+        )
+    except (TranscriptionNotConfiguredError, DeepgramNotConfiguredError, DeepgramAuthError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (TranscriptionError, DeepgramError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    try:
+        transcript = DeepgramTranscript.model_validate(raw).normalized()
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=json.loads(exc.json())) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    try:
+        return run_pipeline(
+            transcript,
+            request.app.state.xai,
+            request.app.state.freesound,
+            story_bytes=data,
+        )
+    except (XaiNotConfiguredError, XaiAuthError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except XaiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except FreeSoundNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except FreeSoundRateLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except AudioMixError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _audio_response(output: PipelineOutput) -> Response:
+    headers = {
+        "Content-Disposition": 'attachment; filename="story_with_sfx.mp3"',
+        "X-Story-Duration-Seconds": f"{output.duration_seconds:.3f}",
+        "X-Story-Cue-Count": str(len(output.cues)),
+    }
+    if output.warnings:
+        warning = " | ".join(output.warnings).replace("\n", " ")
+        headers["X-Story-Warnings"] = warning.encode("latin-1", errors="replace").decode("latin-1")[:500]
+    return Response(content=output.audio_bytes, media_type="audio/mpeg", headers=headers)
 
 
 def _call_deepgram(call) -> dict:
@@ -233,6 +317,18 @@ def _optional_str(value: object) -> str | None:
 
 def _store(request: Request) -> RecordingStore:
     return request.app.state.store
+
+
+def _catalog(request: Request) -> dict:
+    """Active SFX catalog for this request (Supabase, then the checked-in file)."""
+
+    try:
+        catalog = request.app.state.catalog_loader()
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not isinstance(catalog, dict):
+        raise HTTPException(status_code=503, detail="SFX catalog could not be read")
+    return catalog
 
 
 def _get_recording(request: Request, recording_id: str) -> RecordingRecord:

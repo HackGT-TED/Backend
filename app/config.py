@@ -27,12 +27,16 @@ class Settings(BaseSettings):
 
     freesound_api_key: str = ""
     freesound_base_url: str = "https://freesound.org"
-    # Story cues resolve to assets/sfx_catalog/catalog.json. Live text search
-    # runs only when this is false.
+    # Story cues resolve to the SFX catalog. Live text search runs only when
+    # this is false.
     freesound_catalog_only: bool = True
+    # File override. Empty: read public.sfx_catalog from Supabase, then
+    # assets/sfx_catalog/catalog.json.
     sfx_catalog_path: str = ""
 
-    # Server-side only. The service role bypasses RLS. The anon key is not read.
+    # Server-side only. Used to fetch and store the SFX catalog JSON.
+    # The service role bypasses RLS. The anon key is not read.
+    # Marketplace data is not stored in this project.
     supabase_url: str = ""
     supabase_service_role_key: str = ""
     supabase_sfx_bucket: str = "story-sfx"
@@ -43,6 +47,9 @@ class Settings(BaseSettings):
     deepgram_base_url: str = "https://api.deepgram.com"
     deepgram_model: str = "nova-3"
     deepgram_language: str = "en"
+
+    # Used only when DEEPGRAM_API_KEY is empty. DeepGram.py uploads the file to Gladia.
+    gladia_api_key: str = ""
 
     cors_origins: str = "*"
     http_timeout_seconds: float = 60.0

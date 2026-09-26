@@ -14,7 +14,14 @@ from app.services.freesound import (
     FreeSoundNotConfiguredError,
     FreeSoundRateLimitError,
 )
-from app.services.mixer import AudioMixError, TimedClip, load_clip, mix_sfx_bytes
+from app.services.mixer import (
+    AudioMixError,
+    TimedClip,
+    load_clip,
+    mix_on_story_bytes,
+    mix_sfx_bytes,
+    story_duration_ms,
+)
 from app.services.sfx_catalog import CATALOG_PATH, catalog_choices, load_catalog
 from app.services.xai import XaiClient
 
@@ -33,8 +40,20 @@ def run_pipeline(
     transcript: NormalizedTranscript,
     xai: XaiClient,
     freesound: FreeSoundClient,
+    story_bytes: bytes | None = None,
 ) -> PipelineOutput:
-    """Ask xAI which catalog sounds fit, fetch those clips, and mix them on the story clock."""
+    """Ask xAI which catalog sounds fit, fetch those clips, and mix them on the story clock.
+
+    When ``story_bytes`` is the uploaded recording, its decoded length is the
+    clock (word times stay where the transcriber put them) and the effects are
+    mixed onto that audio. Without it, the result is an effects-only track the
+    length of ``transcript.duration_seconds``.
+    """
+
+    story_ms: int | None = None
+    if story_bytes is not None:
+        story_ms = story_duration_ms(story_bytes)
+        transcript = transcript.model_copy(update={"duration_seconds": story_ms / 1000})
 
     choices = _catalog_for_planning()
     allowed = {item["id"] for item in choices}
@@ -87,8 +106,12 @@ def run_pipeline(
             "FreeSound rate limit exceeded for every sound-effect cue"
         )
 
-    duration_ms = max(int(round(transcript.duration_seconds * 1000)), 1)
-    audio_bytes = mix_sfx_bytes(timed, duration_ms)
+    if story_ms is not None:
+        duration_ms = story_ms
+        audio_bytes = mix_on_story_bytes(story_bytes or b"", timed)
+    else:
+        duration_ms = max(int(round(transcript.duration_seconds * 1000)), 1)
+        audio_bytes = mix_sfx_bytes(timed, duration_ms)
     return PipelineOutput(
         duration_seconds=duration_ms / 1000,
         cues=cues,
@@ -97,11 +120,14 @@ def run_pipeline(
     )
 
 
-def _catalog_for_planning() -> list[dict]:
-    try:
-        catalog = load_catalog(CATALOG_PATH)
-    except (OSError, ValueError) as exc:
-        logger.warning("SFX catalog could not be loaded for planning: %s", exc)
+def _catalog_for_planning(catalog: dict | None = None) -> list[dict]:
+    if catalog is None:
+        try:
+            catalog = load_catalog(CATALOG_PATH)
+        except (OSError, ValueError) as exc:
+            logger.warning("SFX catalog could not be loaded for planning: %s", exc)
+            return []
+    if not isinstance(catalog, dict):
         return []
     entries = catalog.get("entries")
     if not isinstance(entries, list):

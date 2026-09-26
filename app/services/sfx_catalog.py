@@ -66,8 +66,14 @@ def load_catalog(path: Path | None = None) -> dict:
     catalog_path = path or CATALOG_PATH
     text = catalog_path.read_text(encoding="utf-8")
     catalog = json.loads(text)
+    return ensure_catalog_document(catalog, source=f"SFX catalog at {catalog_path}")
+
+
+def ensure_catalog_document(catalog: object, *, source: str = "SFX catalog") -> dict:
+    """Return ``catalog`` when it is an object with an ``entries`` list."""
+
     if not isinstance(catalog, dict) or not isinstance(catalog.get("entries"), list):
-        raise ValueError(f"SFX catalog at {catalog_path} must be an object with an entries list")
+        raise ValueError(f"{source} must be an object with an entries list")
     return catalog
 
 

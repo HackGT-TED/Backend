@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.main import create_app
 from app.schemas.sfx import SfxCue
+from app.services.sfx_catalog import CATALOG_PATH, load_catalog
 from app.services.freesound import (
     DownloadedClip,
     FreeSoundError,
@@ -91,7 +92,11 @@ class FakeDeepgram:
         return self.payload
 
 
-def _app(xai, freesound, deepgram=None):
+def _file_catalog() -> dict:
+    return load_catalog(CATALOG_PATH)
+
+
+def _app(xai, freesound, deepgram=None, catalog_loader=None):
     store = MemoryRecordingStore()
     app = create_app(
         settings=_settings(),
@@ -99,6 +104,7 @@ def _app(xai, freesound, deepgram=None):
         freesound_client=freesound,
         store=store,
         deepgram_client=deepgram,
+        catalog_loader=catalog_loader or _file_catalog,
     )
     return app, store
 
@@ -206,7 +212,9 @@ def test_missing_xai_key_fails_clearly_and_keeps_the_recording():
         xai_api_key="",
         freesound_api_key="",
     )
-    with TestClient(create_app(settings=settings, store=store)) as client:
+    with TestClient(
+        create_app(settings=settings, store=store, catalog_loader=_file_catalog)
+    ) as client:
         response = client.post("/stories/process", json=_payload())
         assert response.status_code == 503
         detail = response.json()["detail"]
@@ -320,6 +328,46 @@ def test_process_audio_transcribes_then_stores_sfx():
         assert f"{body['id']}/sfx.mp3" in store.files
     assert deepgram.urls == ["https://example.test/story.wav"]
     assert xai.calls == 1
+
+
+def test_process_plans_and_downloads_from_the_runtime_catalog():
+    seen: dict = {}
+
+    class PlanningXai:
+        def plan_cues(self, transcript, catalog=None):
+            seen["ids"] = [item["id"] for item in catalog or []]
+            return [SfxCue(query="owl-hoot", description="An owl.", start=1.28, end=2.6)]
+
+    class BindingFreeSound(FakeFreeSound):
+        def __init__(self) -> None:
+            super().__init__()
+            self.bound = None
+
+        def bind_catalog(self, catalog: dict):
+            self.bound = catalog
+            return None
+
+    catalog = {
+        "version": 3,
+        "entries": [
+            {
+                "id": "owl-hoot",
+                "label": "Owl hoot",
+                "category": "animals",
+                "keywords": ["owl"],
+                "status": "approved",
+            }
+        ],
+    }
+    freesound = BindingFreeSound()
+    app, _store = _app(PlanningXai(), freesound, catalog_loader=lambda: catalog)
+    with TestClient(app) as client:
+        created = client.post("/stories/process", json=_payload())
+        assert created.status_code == 201
+        assert created.json()["cues"][0]["query"] == "owl-hoot"
+    assert seen["ids"] == ["owl-hoot"]
+    assert freesound.bound["entries"][0]["id"] == "owl-hoot"
+    assert freesound.queries == ["owl-hoot"]
 
 
 def test_transcribe_multipart_audio_uses_bytes():
