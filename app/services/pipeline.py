@@ -5,7 +5,6 @@ Synchronous on purpose for v1: the request stays open until the MP3 is written.
 
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 
 from app.schemas.deepgram import NormalizedTranscript
 from app.schemas.sfx import SfxCue
@@ -15,7 +14,7 @@ from app.services.freesound import (
     FreeSoundNotConfiguredError,
     FreeSoundRateLimitError,
 )
-from app.services.mixer import AudioMixError, TimedClip, load_clip, mix_sfx_mp3
+from app.services.mixer import AudioMixError, TimedClip, load_clip, mix_sfx_bytes
 from app.services.xai import XaiClient
 
 logger = logging.getLogger(__name__)
@@ -25,8 +24,7 @@ logger = logging.getLogger(__name__)
 class PipelineOutput:
     duration_seconds: float
     cues: list[SfxCue]
-    sfx_path: Path
-    relative_path: str
+    audio_bytes: bytes
     warnings: list[str]
 
 
@@ -34,10 +32,8 @@ def run_pipeline(
     transcript: NormalizedTranscript,
     xai: XaiClient,
     freesound: FreeSoundClient,
-    media_dir: Path,
-    recording_id: str,
 ) -> PipelineOutput:
-    """Plan cues, download previews, and write ``{recording_id}/sfx.mp3``."""
+    """Plan cues, download previews, and return an SFX-only MP3."""
 
     cues = xai.plan_cues(transcript)
     warnings: list[str] = []
@@ -85,13 +81,10 @@ def run_pipeline(
         )
 
     duration_ms = max(int(round(transcript.duration_seconds * 1000)), 1)
-    relative_path = f"{recording_id}/sfx.mp3"
-    sfx_path = media_dir / relative_path
-    mix_sfx_mp3(timed, duration_ms, sfx_path)
+    audio_bytes = mix_sfx_bytes(timed, duration_ms)
     return PipelineOutput(
         duration_seconds=duration_ms / 1000,
         cues=cues,
-        sfx_path=sfx_path,
-        relative_path=relative_path,
+        audio_bytes=audio_bytes,
         warnings=warnings,
     )

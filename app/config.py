@@ -28,15 +28,16 @@ class Settings(BaseSettings):
     freesound_api_key: str = ""
     freesound_base_url: str = "https://freesound.org"
 
-    database_url: str = "sqlite:///./data/hackgt.db"
+    # Server-side only. The service role bypasses RLS. The anon key is not read.
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_sfx_bucket: str = "story-sfx"
 
-    # Unused by the v1 pipeline (clients upload Deepgram JSON). Kept so a
-    # later direct-transcription path can share this settings object.
+    # Direct transcription is added alongside the JSON process path.
     deepgram_api_key: str = ""
     deepgram_model: str = "nova-2"
     deepgram_language: str = "en"
 
-    media_dir: str = "./media"
     cors_origins: str = "*"
     http_timeout_seconds: float = 60.0
 

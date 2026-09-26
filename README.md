@@ -2,15 +2,16 @@
 
 Grandparents record a story for a child. Deepgram turns that recording into JSON with word and segment timestamps. This service asks xAI where the sound effects should go, downloads matching clips from FreeSound, and mixes an **SFX-only MP3** aligned to those timestamps. The grandparents' web app and the kids' app load the stored recording and the MP3.
 
-v1 does not call Deepgram and does not upload the original voice recording. Clients send the Deepgram JSON they already have. Processing is synchronous: `POST /stories/process` finishes the mix before it responds.
+Clients can send Deepgram JSON they already have. Processing is synchronous: `POST /stories/process` finishes the mix before it responds. The MP3 is mixed in a temporary directory and uploaded to Supabase Storage. Metadata lives in a Supabase Postgres table. There is no local database.
 
 ```
 Deepgram JSON
   -> transcript text + word/segment timestamps
   -> xAI chat completions (structured SFX cues)
   -> FreeSound text search + preview MP3 per cue
-  -> silent timeline with clips overlaid at those timestamps
-  -> SQLite row + GET /stories/{id}/sfx
+  -> silent timeline mixed under /tmp
+  -> Supabase Storage object + recordings row
+  -> public SFX URL
 ```
 
 ## Requirements
@@ -36,15 +37,17 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Edit `.env` and set `XAI_API_KEY` and `FREESOUND_API_KEY`. Do not commit `.env`. The sample file has empty values only.
+Edit `.env` and set `XAI_API_KEY`, `FREESOUND_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`. Do not commit `.env`. The sample file has empty values only.
+
+Run `supabase/schema.sql` in the Supabase SQL editor once. It creates `public.recordings` and a public Storage bucket named `story-sfx`.
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API listens on `http://127.0.0.1:8000`. Interactive docs are at `/docs`. `GET /health` returns `{"status": "ok"}` with no keys configured. `POST /stories/process` returns **503** until the keys the pipeline needs are set.
+The API listens on `http://127.0.0.1:8000`. Interactive docs are at `/docs`. `GET /health` returns `{"status": "ok"}` with no keys configured. `POST /stories/process` returns **503** until Supabase, xAI, and FreeSound are configured.
 
-Tables are created with SQLAlchemy `create_all` on startup. The default database is `sqlite:///./data/hackgt.db`. There is no Alembic history; delete that file if you change the models locally. Mixed MP3s are written under `MEDIA_DIR` (default `./media/{recording_id}/sfx.mp3`).
+The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and on Vercel) and deletes that file after the bytes are uploaded. The recording row stores `sfx_storage_path` and the public `sfx_url`.
 
 ## Environment
 
@@ -55,15 +58,18 @@ Tables are created with SQLAlchemy `create_all` on startup. The default database
 | `XAI_MODEL` | no | `grok-4.7` | Chat model id. `grok-4.7` supports structured outputs. |
 | `FREESOUND_API_KEY` | to download SFX | empty | FreeSound APIv2 token. |
 | `FREESOUND_BASE_URL` | no | `https://freesound.org` | API host. |
-| `DATABASE_URL` | no | `sqlite:///./data/hackgt.db` | SQLAlchemy URL. |
-| `DEEPGRAM_API_KEY` | no | empty | Reserved. v1 does not call Deepgram. |
-| `DEEPGRAM_MODEL` | no | `nova-2` | Reserved for a later direct-transcription path. |
-| `DEEPGRAM_LANGUAGE` | no | `en` | Reserved. |
-| `MEDIA_DIR` | no | `./media` | Where SFX MP3s are written. |
+| `SUPABASE_URL` | to store stories | empty | Project URL, `https://<ref>.supabase.co`. |
+| `SUPABASE_SERVICE_ROLE_KEY` | to store stories | empty | Server-side key. Bypasses RLS. Never send it to a browser. |
+| `SUPABASE_SFX_BUCKET` | no | `story-sfx` | Public Storage bucket for SFX MP3s. |
+| `DEEPGRAM_API_KEY` | to transcribe audio | empty | Used when a route calls Deepgram. JSON process does not need it. |
+| `DEEPGRAM_MODEL` | no | `nova-2` | Prerecorded model id. |
+| `DEEPGRAM_LANGUAGE` | no | `en` | Language hint passed to Deepgram. |
 | `CORS_ORIGINS` | no | `*` | Comma-separated browser origins for the web and kids apps. |
 | `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for xAI and FreeSound. Raise this if `grok-4.7` reasoning runs long. |
 
-A missing `XAI_API_KEY` or `FREESOUND_API_KEY` raises before any request is sent, and the API returns **503** with the recording id of the failed job.
+A missing `XAI_API_KEY`, `FREESOUND_API_KEY`, or Supabase key raises before any external call that needs it. Supabase is checked when the recording row is created, so a missing project URL returns **503** before xAI is called. After a row exists, a failed xAI or FreeSound call is stored as `status: "failed"` and the response includes `recording_id`.
+
+`SUPABASE_ANON_KEY` is not used. Browser and kids apps should call this API and then load `sfx_url`. That URL is the public object URL for bucket `story-sfx`.
 
 ## API
 
@@ -78,7 +84,7 @@ jq -n --slurpfile dg fixtures/deepgram_sample.json \
       -H 'Content-Type: application/json' -d @-
 ```
 
-`201` response includes `id`, `status` (`ready`), cue timestamps, `warnings`, and `sfx_url`.
+`201` response includes `id`, `status` (`ready`), cue timestamps, `warnings`, and `sfx_url` (a public Supabase Storage URL).
 
 Failed external calls are stored as `status: "failed"` and returned as:
 
@@ -100,7 +106,7 @@ Metadata, transcript text, the original Deepgram JSON, cue timestamps, warnings,
 
 ### `GET /stories/{id}/sfx`
 
-The SFX-only MP3 (`audio/mpeg`). This file is silence plus the placed effects. It does not contain the grandparent's voice.
+Redirects (`307`) to the public Storage URL. The file is silence plus the placed effects. It does not contain the grandparent's voice. The kids app can also use `sfx_url` from the JSON and skip this redirect.
 
 ### `GET /health`
 
@@ -180,9 +186,10 @@ app/schemas/deepgram.py     Deepgram JSON -> transcript
 app/schemas/sfx.py          cue schema and alignment
 app/services/xai.py        xAI Chat Completions client
 app/services/freesound.py   search + preview download
-app/services/mixer.py       silence + overlays -> MP3
-app/services/pipeline.py    wires the three steps
-app/db/models.py            Recording, StoryAudio
+app/services/mixer.py       silence + overlays -> MP3 bytes
+app/services/pipeline.py    wires planning, download, and mix
+app/services/store.py       Supabase table + Storage
 app/api/routes.py           /stories and /health
+supabase/schema.sql         recordings table and story-sfx bucket
 fixtures/deepgram_sample.json
 ```

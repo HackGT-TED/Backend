@@ -1,4 +1,7 @@
-"""Uvicorn entrypoint: ``uvicorn app.main:app``."""
+"""Uvicorn entrypoint: ``uvicorn app.main:app``.
+
+Vercel loads the same ``app`` object. See ``[tool.vercel]`` in ``pyproject.toml``.
+"""
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -9,8 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.api.routes import router
 from app.config import Settings, get_settings
-from app.db.session import create_session_factory
 from app.services.freesound import FreeSoundClient, HttpFreeSoundClient
+from app.services.store import RecordingStore, SupabaseRecordingStore
 from app.services.xai import HttpXaiClient, XaiClient
 
 
@@ -28,8 +31,9 @@ def create_app(
     settings: Settings | None = None,
     xai_client: XaiClient | None = None,
     freesound_client: FreeSoundClient | None = None,
+    store: RecordingStore | None = None,
 ) -> FastAPI:
-    """Build the API with its database, external clients, and story routes."""
+    """Build the API. Persistence is a Supabase client unless a test store is passed."""
 
     settings = settings or get_settings()
     app = FastAPI(
@@ -39,7 +43,7 @@ def create_app(
         lifespan=_lifespan,
     )
     app.state.settings = settings
-    app.state.session_factory = create_session_factory(settings.database_url)
+    app.state.store = store if store is not None else SupabaseRecordingStore(settings)
     app.state.xai = xai_client or HttpXaiClient(settings)
     app.state.freesound = freesound_client or HttpFreeSoundClient(settings)
 

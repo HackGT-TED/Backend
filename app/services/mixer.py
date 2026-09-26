@@ -1,5 +1,8 @@
 """Build an SFX-only timeline and export it as MP3.
 
+Mixing writes a temporary file (the system temp directory, ``/tmp`` on Vercel)
+and returns the bytes. Callers upload those bytes; nothing is kept on local disk.
+
 The timeline is silence of the story duration, with each clip overlaid at the
 cue's start timestamp and trimmed so it cannot spill past the cue end or the
 story end. Export uses pydub, which shells out to ffmpeg (libmp3lame). WAV
@@ -7,6 +10,7 @@ bytes are decoded in-process; MP3 and OGG previews need ffmpeg on ``PATH``.
 """
 
 import io
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,6 +33,15 @@ class TimedClip:
     end_ms: int
     audio_bytes: bytes
     query: str = ""
+
+
+def mix_sfx_bytes(clips: list[TimedClip], duration_ms: int) -> bytes:
+    """Mix clips and return the MP3 bytes. The temp file is removed before return."""
+
+    with tempfile.TemporaryDirectory(prefix="story-sfx-") as directory:
+        path = Path(directory) / "sfx.mp3"
+        mix_sfx_mp3(clips, duration_ms, path)
+        return path.read_bytes()
 
 
 def mix_sfx_mp3(clips: list[TimedClip], duration_ms: int, output_path: Path) -> Path:

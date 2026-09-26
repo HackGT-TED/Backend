@@ -1,45 +1,34 @@
-"""Story routes: process a transcript, list recordings, serve the SFX MP3."""
+"""Story routes: process a transcript, list recordings, redirect to the SFX URL."""
 
 import json
 import uuid
-from collections.abc import Iterator
-from pathlib import Path
+from datetime import datetime, timezone
 from typing import NoReturn
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from pydantic import ValidationError
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
 
-from app.config import Settings
-from app.db.models import Recording, StoryAudio
 from app.schemas.api import CueOut, ProcessStoryRequest, RecordingDetail, RecordingSummary
 from app.schemas.deepgram import DeepgramTranscript
 from app.schemas.sfx import SfxCue
 from app.services.freesound import FreeSoundNotConfiguredError, FreeSoundRateLimitError
 from app.services.mixer import AudioMixError
-from app.services.xai import XaiAuthError, XaiError, XaiNotConfiguredError
 from app.services.pipeline import run_pipeline
+from app.services.store import (
+    RecordingRecord,
+    RecordingStore,
+    SupabaseError,
+    SupabaseNotConfiguredError,
+)
+from app.services.xai import XaiAuthError, XaiError, XaiNotConfiguredError
 
 router = APIRouter(prefix="/stories", tags=["stories"])
 
 
-def get_db(request: Request) -> Iterator[Session]:
-    session = request.app.state.session_factory()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
 @router.post("/process", response_model=RecordingDetail, status_code=201)
-def process_story(
-    request: Request,
-    body: ProcessStoryRequest,
-    db: Session = Depends(get_db),
-) -> RecordingDetail:
-    """Plan SFX cues, mix an MP3 aligned to the transcript, and store it."""
+def process_story(request: Request, body: ProcessStoryRequest) -> RecordingDetail:
+    """Plan SFX cues, mix an MP3, upload it to Supabase Storage, and store the row."""
 
     try:
         payload = body.deepgram_payload()
@@ -49,8 +38,9 @@ def process_story(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    settings: Settings = request.app.state.settings
-    recording = Recording(
+    store = _store(request)
+    now = datetime.now(timezone.utc)
+    record = RecordingRecord(
         id=str(uuid.uuid4()),
         story_id=body.story_id,
         title=body.title,
@@ -60,111 +50,125 @@ def process_story(
         transcript_json=payload,
         duration_seconds=transcript.duration_seconds,
         status="processing",
-        warnings_json=[],
+        warnings=[],
+        created_at=now,
+        updated_at=now,
     )
-    db.add(recording)
-    db.commit()
+    _create_record(store, record)
 
     try:
         output = run_pipeline(
             transcript,
             request.app.state.xai,
             request.app.state.freesound,
-            Path(settings.media_dir),
-            recording.id,
         )
     except (XaiNotConfiguredError, XaiAuthError) as exc:
-        _mark_failed(db, recording, exc)
-        _raise_pipeline_error(503, exc, recording.id)
+        _mark_failed(store, record, exc)
+        _raise_pipeline_error(503, exc, record.id)
     except XaiError as exc:
-        _mark_failed(db, recording, exc)
-        _raise_pipeline_error(502, exc, recording.id)
+        _mark_failed(store, record, exc)
+        _raise_pipeline_error(502, exc, record.id)
     except FreeSoundNotConfiguredError as exc:
-        _mark_failed(db, recording, exc)
-        _raise_pipeline_error(503, exc, recording.id)
+        _mark_failed(store, record, exc)
+        _raise_pipeline_error(503, exc, record.id)
     except FreeSoundRateLimitError as exc:
-        _mark_failed(db, recording, exc)
-        _raise_pipeline_error(429, exc, recording.id)
+        _mark_failed(store, record, exc)
+        _raise_pipeline_error(429, exc, record.id)
     except AudioMixError as exc:
-        _mark_failed(db, recording, exc)
-        _raise_pipeline_error(500, exc, recording.id)
+        _mark_failed(store, record, exc)
+        _raise_pipeline_error(500, exc, record.id)
     except Exception as exc:
-        _mark_failed(db, recording, exc)
+        _mark_failed(store, record, exc)
         raise
 
-    audio = StoryAudio(
-        recording_id=recording.id,
-        sfx_mp3_path=output.relative_path,
-        cues_json=[_cue_payload(cue) for cue in output.cues],
-        duration_seconds=output.duration_seconds,
-    )
-    recording.story_audio = audio
-    recording.status = "ready"
-    recording.duration_seconds = output.duration_seconds
-    recording.warnings_json = output.warnings
-    recording.error_message = None
-    db.add(audio)
-    db.commit()
-    return _detail(recording, request)
+    try:
+        path, url = store.upload_sfx(record.id, output.audio_bytes)
+    except SupabaseNotConfiguredError as exc:
+        _mark_failed(store, record, exc)
+        _raise_pipeline_error(503, exc, record.id)
+    except SupabaseError as exc:
+        _mark_failed(store, record, exc)
+        _raise_pipeline_error(502, exc, record.id)
+
+    record.status = "ready"
+    record.duration_seconds = output.duration_seconds
+    record.warnings = output.warnings
+    record.error_message = None
+    record.cues = [_cue_payload(cue) for cue in output.cues]
+    record.sfx_storage_path = path
+    record.sfx_url = url
+    _save_record(store, record)
+    return _detail(record)
 
 
 @router.get("", response_model=list[RecordingSummary])
-def list_stories(
-    request: Request,
-    story_id: str | None = None,
-    db: Session = Depends(get_db),
-) -> list[RecordingSummary]:
-    stmt = (
-        select(Recording)
-        .options(selectinload(Recording.story_audio))
-        .order_by(Recording.created_at.desc())
-    )
-    if story_id is not None:
-        stmt = stmt.where(Recording.story_id == story_id)
-    rows = db.scalars(stmt).all()
-    return [_summary(row, request) for row in rows]
+def list_stories(request: Request, story_id: str | None = None) -> list[RecordingSummary]:
+    try:
+        rows = _store(request).list(story_id)
+    except SupabaseNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except SupabaseError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return [_summary(row) for row in rows]
 
 
 @router.get("/{recording_id}", response_model=RecordingDetail)
-def get_story(
-    recording_id: str,
-    request: Request,
-    db: Session = Depends(get_db),
-) -> RecordingDetail:
-    return _detail(_get_recording(db, recording_id), request)
+def get_story(recording_id: str, request: Request) -> RecordingDetail:
+    return _detail(_get_recording(request, recording_id))
 
 
 @router.get("/{recording_id}/sfx", name="download_sfx")
-def download_sfx(
-    recording_id: str,
-    request: Request,
-    db: Session = Depends(get_db),
-) -> FileResponse:
-    recording = _get_recording(db, recording_id)
-    if recording.status != "ready" or recording.story_audio is None:
+def download_sfx(recording_id: str, request: Request) -> RedirectResponse:
+    """Redirect to the public Supabase Storage URL for the SFX MP3."""
+
+    record = _get_recording(request, recording_id)
+    if record.status != "ready" or not record.sfx_url:
         raise HTTPException(status_code=404, detail="SFX track is not available")
-    path = _media_file(request.app.state.settings, recording.story_audio.sfx_mp3_path)
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="SFX file is missing")
-    return FileResponse(path, media_type="audio/mpeg", filename=f"{recording.id}.mp3")
+    return RedirectResponse(record.sfx_url, status_code=307)
 
 
-def _get_recording(db: Session, recording_id: str) -> Recording:
-    stmt = (
-        select(Recording)
-        .options(selectinload(Recording.story_audio))
-        .where(Recording.id == recording_id)
-    )
-    recording = db.scalars(stmt).first()
-    if recording is None:
+def _store(request: Request) -> RecordingStore:
+    return request.app.state.store
+
+
+def _get_recording(request: Request, recording_id: str) -> RecordingRecord:
+    try:
+        record = _store(request).get(recording_id)
+    except SupabaseNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except SupabaseError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    if record is None:
         raise HTTPException(status_code=404, detail="Recording not found")
-    return recording
+    return record
 
 
-def _mark_failed(db: Session, recording: Recording, exc: Exception) -> None:
-    recording.status = "failed"
-    recording.error_message = str(exc)
-    db.commit()
+def _create_record(store: RecordingStore, record: RecordingRecord) -> None:
+    try:
+        store.create(record)
+    except SupabaseNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except SupabaseError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+def _save_record(store: RecordingStore, record: RecordingRecord) -> None:
+    try:
+        store.save(record)
+    except SupabaseError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": str(exc), "recording_id": record.id},
+        ) from exc
+
+
+def _mark_failed(store: RecordingStore, record: RecordingRecord, exc: Exception) -> None:
+    record.status = "failed"
+    record.error_message = str(exc)
+    try:
+        store.save(record)
+    except SupabaseError:
+        return
 
 
 def _raise_pipeline_error(status_code: int, exc: Exception, recording_id: str) -> NoReturn:
@@ -186,41 +190,27 @@ def _cue_payload(cue: SfxCue) -> dict:
     }
 
 
-def _sfx_url(request: Request, recording: Recording) -> str | None:
-    if recording.status != "ready" or recording.story_audio is None:
-        return None
-    return str(request.url_for("download_sfx", recording_id=recording.id))
-
-
-def _summary(recording: Recording, request: Request) -> RecordingSummary:
+def _summary(record: RecordingRecord) -> RecordingSummary:
+    sfx_url = record.sfx_url if record.status == "ready" else None
     return RecordingSummary(
-        id=recording.id,
-        story_id=recording.story_id,
-        title=recording.title,
-        narrator=recording.narrator,
-        status=recording.status,
-        duration_seconds=recording.duration_seconds,
-        sfx_url=_sfx_url(request, recording),
-        created_at=recording.created_at,
+        id=record.id,
+        story_id=record.story_id,
+        title=record.title,
+        narrator=record.narrator,
+        status=record.status,
+        duration_seconds=record.duration_seconds,
+        sfx_url=sfx_url,
+        created_at=record.created_at,
     )
 
 
-def _detail(recording: Recording, request: Request) -> RecordingDetail:
-    cues_raw = recording.story_audio.cues_json if recording.story_audio else []
+def _detail(record: RecordingRecord) -> RecordingDetail:
     return RecordingDetail(
-        **_summary(recording, request).model_dump(),
-        source_audio_url=recording.source_audio_url,
-        transcript_text=recording.transcript_text,
-        cues=[CueOut.model_validate(item) for item in cues_raw or []],
-        warnings=list(recording.warnings_json or []),
-        error_message=recording.error_message,
-        transcript_json=recording.transcript_json or {},
+        **_summary(record).model_dump(),
+        source_audio_url=record.source_audio_url,
+        transcript_text=record.transcript_text,
+        cues=[CueOut.model_validate(item) for item in record.cues or []],
+        warnings=list(record.warnings or []),
+        error_message=record.error_message,
+        transcript_json=record.transcript_json or {},
     )
-
-
-def _media_file(settings: Settings, relative: str) -> Path:
-    root = Path(settings.media_dir).resolve()
-    path = (root / relative).resolve()
-    if not path.is_relative_to(root):
-        raise HTTPException(status_code=400, detail="Invalid media path")
-    return path
