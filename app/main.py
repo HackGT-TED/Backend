@@ -11,13 +11,13 @@ from app.api.routes import router
 from app.config import Settings, get_settings
 from app.db.session import create_session_factory
 from app.services.freesound import FreeSoundClient, HttpFreeSoundClient
-from app.services.muse_spark import HttpMuseSparkClient, MuseSparkClient
+from app.services.xai import HttpXaiClient, XaiClient
 
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
-    for name in ("muse", "freesound"):
+    for name in ("xai", "freesound"):
         client = getattr(app.state, name, None)
         close = getattr(client, "close", None)
         if callable(close):
@@ -26,7 +26,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app(
     settings: Settings | None = None,
-    muse_client: MuseSparkClient | None = None,
+    xai_client: XaiClient | None = None,
     freesound_client: FreeSoundClient | None = None,
 ) -> FastAPI:
     """Build the API with its database, external clients, and story routes."""
@@ -40,7 +40,7 @@ def create_app(
     )
     app.state.settings = settings
     app.state.session_factory = create_session_factory(settings.database_url)
-    app.state.muse = muse_client or HttpMuseSparkClient(settings)
+    app.state.xai = xai_client or HttpXaiClient(settings)
     app.state.freesound = freesound_client or HttpFreeSoundClient(settings)
 
     app.add_middleware(

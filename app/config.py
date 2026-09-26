@@ -19,11 +19,11 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    muse_spark_api_key: str = ""
-    # Meta Model API, OpenAI-compatible Chat Completions.
-    # https://ai.developer.meta.com/docs/protocols/chat-completions
-    muse_spark_base_url: str = "https://api.meta.ai/v1"
-    muse_spark_model: str = "muse-spark-1.3"
+    xai_api_key: str = ""
+    # xAI OpenAI-compatible Chat Completions.
+    # https://docs.x.ai/docs/models/grok-4.7
+    xai_base_url: str = "https://api.x.ai/v1"
+    xai_model: str = "grok-4.7"
 
     freesound_api_key: str = ""
     freesound_base_url: str = "https://freesound.org"

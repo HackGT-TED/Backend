@@ -16,7 +16,7 @@ from app.services.freesound import (
     FreeSoundRateLimitError,
 )
 from app.services.mixer import AudioMixError, TimedClip, load_clip, mix_sfx_mp3
-from app.services.muse_spark import MuseSparkClient
+from app.services.xai import XaiClient
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +32,14 @@ class PipelineOutput:
 
 def run_pipeline(
     transcript: NormalizedTranscript,
-    muse: MuseSparkClient,
+    xai: XaiClient,
     freesound: FreeSoundClient,
     media_dir: Path,
     recording_id: str,
 ) -> PipelineOutput:
     """Plan cues, download previews, and write ``{recording_id}/sfx.mp3``."""
 
-    cues = muse.plan_cues(transcript)
+    cues = xai.plan_cues(transcript)
     warnings: list[str] = []
     timed: list[TimedClip] = []
     rate_limited = 0

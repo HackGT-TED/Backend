@@ -1,4 +1,4 @@
-"""Sound-effect cues returned by Muse Spark and consumed by the mixer."""
+"""Sound-effect cues returned by xAI and consumed by the mixer."""
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -53,7 +53,7 @@ _MIN_WINDOW_MS = 50
 class SfxCue(BaseModel):
     """One placed effect.
 
-    Muse Spark is asked for ``start`` and ``end`` in seconds. ``start_ms`` and
+    xAI is asked for ``start`` and ``end`` in seconds. ``start_ms`` and
     ``end_ms`` are accepted as well so callers can pass millisecond windows.
     """
 

@@ -1,4 +1,4 @@
-"""Story API with Muse Spark and FreeSound replaced by in-process fakes."""
+"""Story API with xAI and FreeSound replaced by in-process fakes."""
 
 import json
 from pathlib import Path
@@ -18,7 +18,7 @@ from tests.wavutil import sine_wav_bytes
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "deepgram_sample.json"
 
 
-class FakeMuse:
+class FakeXai:
     def __init__(self, cues: list[SfxCue]) -> None:
         self.cues = cues
         self.calls = 0
@@ -52,13 +52,13 @@ def _settings(tmp_path: Path) -> Settings:
     return Settings(
         database_url=f"sqlite:///{tmp_path / 'stories.db'}",
         media_dir=str(tmp_path / "media"),
-        muse_spark_api_key="test",
+        xai_api_key="test",
         freesound_api_key="test",
     )
 
 
-def _client(tmp_path: Path, muse, freesound) -> TestClient:
-    app = create_app(settings=_settings(tmp_path), muse_client=muse, freesound_client=freesound)
+def _client(tmp_path: Path, xai, freesound) -> TestClient:
+    app = create_app(settings=_settings(tmp_path), xai_client=xai, freesound_client=freesound)
     return TestClient(app)
 
 
@@ -75,12 +75,12 @@ def _payload(**extra) -> dict:
 
 
 def test_health(tmp_path):
-    with _client(tmp_path, FakeMuse([]), FakeFreeSound()) as client:
+    with _client(tmp_path, FakeXai([]), FakeFreeSound()) as client:
         assert client.get("/health").json() == {"status": "ok"}
 
 
 def test_process_stores_recording_and_serves_aligned_sfx(tmp_path):
-    muse = FakeMuse(
+    xai = FakeXai(
         [
             SfxCue(
                 query="gentle rain ambience",
@@ -97,7 +97,7 @@ def test_process_stores_recording_and_serves_aligned_sfx(tmp_path):
         ]
     )
     freesound = FakeFreeSound()
-    with _client(tmp_path, muse, freesound) as client:
+    with _client(tmp_path, xai, freesound) as client:
         created = client.post("/stories/process", json=_payload())
         assert created.status_code == 201
         body = created.json()
@@ -134,17 +134,17 @@ def test_process_stores_recording_and_serves_aligned_sfx(tmp_path):
         assert missing.status_code == 404
         assert client.get("/stories/does-not-exist/sfx").status_code == 404
 
-    assert muse.calls == 1
+    assert xai.calls == 1
     assert freesound.queries == ["gentle rain ambience", "wooden door creak"]
     stored = tmp_path / "media" / body["id"] / "sfx.mp3"
     assert stored.is_file()
 
 
 def test_raw_deepgram_body_is_accepted(tmp_path):
-    muse = FakeMuse(
+    xai = FakeXai(
         [SfxCue(query="bird song", description="The bird.", start=6.3, end=7.6)]
     )
-    with _client(tmp_path, muse, FakeFreeSound()) as client:
+    with _client(tmp_path, xai, FakeFreeSound()) as client:
         created = client.post("/stories/process", json=json.loads(FIXTURE.read_text()))
         assert created.status_code == 201
         assert created.json()["story_id"] is None
@@ -152,7 +152,7 @@ def test_raw_deepgram_body_is_accepted(tmp_path):
 
 
 def test_invalid_transcript_is_422_and_stores_nothing(tmp_path):
-    with _client(tmp_path, FakeMuse([]), FakeFreeSound()) as client:
+    with _client(tmp_path, FakeXai([]), FakeFreeSound()) as client:
         response = client.post(
             "/stories/process",
             json={"deepgram": {"transcript": "   ", "words": []}},
@@ -161,18 +161,18 @@ def test_invalid_transcript_is_422_and_stores_nothing(tmp_path):
         assert client.get("/stories").json() == []
 
 
-def test_missing_muse_key_fails_clearly_and_keeps_the_recording(tmp_path):
+def test_missing_xai_key_fails_clearly_and_keeps_the_recording(tmp_path):
     settings = Settings(
         database_url=f"sqlite:///{tmp_path / 'stories.db'}",
         media_dir=str(tmp_path / "media"),
-        muse_spark_api_key="",
+        xai_api_key="",
         freesound_api_key="",
     )
     with TestClient(create_app(settings=settings)) as client:
         response = client.post("/stories/process", json=_payload())
         assert response.status_code == 503
         detail = response.json()["detail"]
-        assert "MUSE_SPARK_API_KEY" in detail["message"]
+        assert "XAI_API_KEY" in detail["message"]
         recording_id = detail["recording_id"]
         stored = client.get(f"/stories/{recording_id}")
         assert stored.status_code == 200
@@ -182,7 +182,7 @@ def test_missing_muse_key_fails_clearly_and_keeps_the_recording(tmp_path):
 
 
 def test_a_missing_freesound_hit_is_a_warning_not_a_failed_story(tmp_path):
-    muse = FakeMuse(
+    xai = FakeXai(
         [
             SfxCue(query="gentle rain ambience", description="rain", start=1.28, end=2.6),
             SfxCue(query="unicorn sneeze", description="no such clip", start=6.3, end=7.1),
@@ -191,7 +191,7 @@ def test_a_missing_freesound_hit_is_a_warning_not_a_failed_story(tmp_path):
     freesound = FakeFreeSound(
         fail_queries={"unicorn sneeze": FreeSoundError("No FreeSound results for query 'unicorn sneeze'")}
     )
-    with _client(tmp_path, muse, freesound) as client:
+    with _client(tmp_path, xai, freesound) as client:
         created = client.post("/stories/process", json=_payload())
         assert created.status_code == 201
         body = created.json()
@@ -202,7 +202,7 @@ def test_a_missing_freesound_hit_is_a_warning_not_a_failed_story(tmp_path):
 
 
 def test_freesound_rate_limit_on_every_cue_is_429(tmp_path):
-    muse = FakeMuse(
+    xai = FakeXai(
         [SfxCue(query="gentle rain ambience", description="rain", start=1.28, end=2.6)]
     )
     freesound = FakeFreeSound(
@@ -210,7 +210,7 @@ def test_freesound_rate_limit_on_every_cue_is_429(tmp_path):
             "gentle rain ambience": FreeSoundRateLimitError("FreeSound rate limit exceeded")
         }
     )
-    with _client(tmp_path, muse, freesound) as client:
+    with _client(tmp_path, xai, freesound) as client:
         response = client.post("/stories/process", json=_payload())
         assert response.status_code == 429
         recording_id = response.json()["detail"]["recording_id"]

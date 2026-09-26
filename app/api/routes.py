@@ -19,7 +19,7 @@ from app.schemas.deepgram import DeepgramTranscript
 from app.schemas.sfx import SfxCue
 from app.services.freesound import FreeSoundNotConfiguredError, FreeSoundRateLimitError
 from app.services.mixer import AudioMixError
-from app.services.muse_spark import MuseSparkAuthError, MuseSparkError, MuseSparkNotConfiguredError
+from app.services.xai import XaiAuthError, XaiError, XaiNotConfiguredError
 from app.services.pipeline import run_pipeline
 
 router = APIRouter(prefix="/stories", tags=["stories"])
@@ -68,15 +68,15 @@ def process_story(
     try:
         output = run_pipeline(
             transcript,
-            request.app.state.muse,
+            request.app.state.xai,
             request.app.state.freesound,
             Path(settings.media_dir),
             recording.id,
         )
-    except (MuseSparkNotConfiguredError, MuseSparkAuthError) as exc:
+    except (XaiNotConfiguredError, XaiAuthError) as exc:
         _mark_failed(db, recording, exc)
         _raise_pipeline_error(503, exc, recording.id)
-    except MuseSparkError as exc:
+    except XaiError as exc:
         _mark_failed(db, recording, exc)
         _raise_pipeline_error(502, exc, recording.id)
     except FreeSoundNotConfiguredError as exc:

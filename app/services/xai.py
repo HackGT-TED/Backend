@@ -1,20 +1,19 @@
-"""Muse Spark client.
+"""xAI chat client for sound-effect planning.
 
-Muse Spark is served by Meta's Model API. Chat Completions are OpenAI-compatible:
+xAI's Chat Completions API is OpenAI-compatible:
 
-* Base URL: ``https://api.meta.ai/v1`` (``MUSE_SPARK_BASE_URL``)
+* Base URL: ``https://api.x.ai/v1`` (``XAI_BASE_URL``)
 * Endpoint: ``POST /chat/completions``
-* Model: ``muse-spark-1.3`` (``MUSE_SPARK_MODEL``)
-* Auth: ``Authorization: Bearer $MUSE_SPARK_API_KEY``
+* Model: ``grok-4.7`` (``XAI_MODEL``)
+* Auth: ``Authorization: Bearer $XAI_API_KEY``
 
-Meta's own docs call the credential ``MODEL_API_KEY``. This service reads
-``MUSE_SPARK_API_KEY`` so the teddy-bear project has one obvious env var.
-Structured cues use ``response_format`` with ``type: json_schema`` (Chat
-Completions). The Responses API parameter ``text.format`` is a different
-endpoint and is not sent here.
+``grok-4.7`` is the chat model xAI documents as the default for text work, and
+its model page lists structured outputs as supported. Cues are requested with
+``response_format.type = "json_schema"``. The assistant message is still parsed
+defensively: fenced JSON and a JSON object wrapped in prose both work.
 
-Docs: https://ai.developer.meta.com/docs/protocols/chat-completions
-and https://ai.developer.meta.com/docs/structured-output
+Docs: https://docs.x.ai/docs/models/grok-4.7
+and https://docs.x.ai/developers/model-capabilities/text/structured-outputs
 """
 
 import json
@@ -38,32 +37,32 @@ Rules:
 """
 
 
-class MuseSparkClient(Protocol):
+class XaiClient(Protocol):
     """Plans timed sound-effect cues for one transcript."""
 
     def plan_cues(self, transcript: NormalizedTranscript) -> list[SfxCue]:
         """Return cues aligned to ``transcript.duration_seconds``."""
 
 
-class MuseSparkError(RuntimeError):
-    """The Muse Spark call failed or returned a payload we could not use."""
+class XaiError(RuntimeError):
+    """The xAI call failed or returned a payload we could not use."""
 
 
-class MuseSparkNotConfiguredError(MuseSparkError):
-    """``MUSE_SPARK_API_KEY`` is empty, so no request was sent."""
+class XaiNotConfiguredError(XaiError):
+    """``XAI_API_KEY`` is empty, so no request was sent."""
 
 
-class MuseSparkAuthError(MuseSparkError):
-    """The Model API rejected the configured key."""
+class XaiAuthError(XaiError):
+    """xAI rejected the configured key."""
 
 
-class HttpMuseSparkClient:
+class HttpXaiClient:
     """Chat Completions client. A missing key fails before any HTTP call."""
 
     def __init__(self, settings: Settings, http: httpx.Client | None = None) -> None:
-        self._api_key = settings.muse_spark_api_key.strip()
-        self._model = settings.muse_spark_model
-        self._url = settings.muse_spark_base_url.rstrip("/") + "/chat/completions"
+        self._api_key = settings.xai_api_key.strip()
+        self._model = settings.xai_model
+        self._url = settings.xai_base_url.rstrip("/") + "/chat/completions"
         self._owns_http = http is None
         self._http = http or httpx.Client(timeout=settings.http_timeout_seconds)
 
@@ -73,10 +72,9 @@ class HttpMuseSparkClient:
 
     def plan_cues(self, transcript: NormalizedTranscript) -> list[SfxCue]:
         if not self._api_key:
-            raise MuseSparkNotConfiguredError(
-                "MUSE_SPARK_API_KEY is not set. Add it to .env (see .env.example). "
-                "Meta Model API docs call this credential MODEL_API_KEY; this service "
-                "reads MUSE_SPARK_API_KEY. No request was sent."
+            raise XaiNotConfiguredError(
+                "XAI_API_KEY is not set. Add it to .env (see .env.example). "
+                "No request was sent."
             )
         plan = self._complete(transcript)
         return align_cues(plan.cues, transcript.duration_seconds)
@@ -103,31 +101,29 @@ class HttpMuseSparkClient:
                 json=payload,
             )
         except httpx.HTTPError as exc:
-            raise MuseSparkError(f"Muse Spark request failed: {exc}") from exc
+            raise XaiError(f"xAI request failed: {exc}") from exc
 
         if response.status_code in {401, 403}:
-            raise MuseSparkAuthError(
-                f"Muse Spark rejected MUSE_SPARK_API_KEY (HTTP {response.status_code})."
+            raise XaiAuthError(
+                f"xAI rejected XAI_API_KEY (HTTP {response.status_code})."
             )
         if response.status_code >= 400:
             detail = response.text[:500]
-            raise MuseSparkError(
-                f"Muse Spark request failed (HTTP {response.status_code}): {detail}"
-            )
+            raise XaiError(f"xAI request failed (HTTP {response.status_code}): {detail}")
 
         try:
             body = response.json()
             content = body["choices"][0]["message"]["content"]
         except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise MuseSparkError(f"Unexpected Muse Spark response shape: {exc}") from exc
+            raise XaiError(f"Unexpected xAI response shape: {exc}") from exc
 
         text = _message_text(content)
         if not text.strip():
-            raise MuseSparkError("Muse Spark returned an empty completion")
+            raise XaiError("xAI returned an empty completion")
         try:
-            return SfxPlan.model_validate_json(_strip_fences(text))
+            return _parse_plan(text)
         except ValueError as exc:
-            raise MuseSparkError(f"Muse Spark cue JSON did not match the SFX schema: {exc}") from exc
+            raise XaiError(f"xAI cue JSON did not match the SFX schema: {exc}") from exc
 
 
 def _message_text(content: object) -> str:
@@ -141,7 +137,18 @@ def _message_text(content: object) -> str:
             elif isinstance(item, dict) and item.get("text"):
                 parts.append(str(item["text"]))
         return "".join(parts)
-    raise MuseSparkError("Muse Spark message content was not text")
+    raise XaiError("xAI message content was not text")
+
+
+def _parse_plan(text: str) -> SfxPlan:
+    cleaned = _strip_fences(text)
+    try:
+        return SfxPlan.model_validate_json(cleaned)
+    except ValueError:
+        extracted = _extract_json_object(cleaned)
+        if extracted is None:
+            raise
+        return SfxPlan.model_validate_json(extracted)
 
 
 def _strip_fences(text: str) -> str:
@@ -152,3 +159,33 @@ def _strip_fences(text: str) -> str:
     if stripped.endswith("```"):
         stripped = stripped[: stripped.rfind("```")]
     return stripped.strip()
+
+
+def _extract_json_object(text: str) -> str | None:
+    """Return the first balanced JSON object, ignoring surrounding prose."""
+
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escape = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return None
