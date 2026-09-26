@@ -1,10 +1,20 @@
+import json
 import os
 import time
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
-GLADIA_API_KEY = os.environ["GLADIA_API_KEY"]
+
+
+def gladia_api_key() -> str:
+    """Read the Gladia key when a request is made, not when this module is imported."""
+
+    load_dotenv()
+    key = os.environ.get("GLADIA_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("GLADIA_API_KEY is not set. Add it to .env. No request was sent.")
+    return key
 
 
 
@@ -63,7 +73,7 @@ def InitiateTranscriptionJob(audio_url):
     }
 
     headers = {
-    "x-gladia-key": GLADIA_API_KEY,
+    "x-gladia-key": gladia_api_key(),
     "Content-Type": "application/json"
     }
 
@@ -74,7 +84,7 @@ def InitiateTranscriptionJob(audio_url):
     return result_url
 
 def getTranscriptionResult(result_url):
-    headers = {"x-gladia-key": GLADIA_API_KEY}
+    headers = {"x-gladia-key": gladia_api_key()}
     #data = response.json()
     while True:
         response = requests.get(result_url, headers=headers)
@@ -94,14 +104,13 @@ def getTranscriptionResult(result_url):
 def uploadJsonAudio(payload_json):
     """Upload audio that arrived as JSON (see encodeToJson) to Gladia; return its audio_url."""
     import base64
-    import json
 
     payload = json.loads(payload_json)
     audio_bytes = base64.b64decode(payload["audio_base64"])  # back to the original file bytes
 
     response = requests.post(
         "https://api.gladia.io/v2/upload",
-        headers={"x-gladia-key": GLADIA_API_KEY},
+        headers={"x-gladia-key": gladia_api_key()},
         # multipart field "audio": (filename, bytes, content type)
         files={"audio": (payload["filename"], audio_bytes, payload["content_type"])},
     )

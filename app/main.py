@@ -41,7 +41,7 @@ def create_app(
     app = FastAPI(
         title="HackGT TED Story Backend",
         version=__version__,
-        summary="Turn grandparent story transcripts into a timed sound-effects track.",
+        summary="Turn a story recording into the same audio with catalog sound effects lined up on it.",
         lifespan=_lifespan,
     )
     app.state.settings = settings
