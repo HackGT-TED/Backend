@@ -25,15 +25,27 @@ from app.config import Settings
 from app.schemas.deepgram import NormalizedTranscript
 from app.schemas.sfx import SFX_RESPONSE_FORMAT, SfxCue, SfxPlan, align_cues
 
-_SYSTEM_PROMPT = """You match moments in a children's story to sounds from a fixed catalog.
-Your only job is similarity: which catalog sound fits which words, and when it should play.
-Python downloads those clips from FreeSound and places them on the timeline. You do not fetch audio.
+# Gaps at least this long are listed for the model. Shorter gaps stay unspoken.
+LONG_PAUSE_MS = 600
+
+_SYSTEM_PROMPT = """You design an immersive sound bed for a children's story.
+Python downloads clips from a fixed catalog and mixes them on the story clock. You do not fetch audio.
+Choose which catalog sound fits, how long it should last, and what else may play at the same time.
+
 Rules:
-- catalog_id must be copied exactly from the catalog list in the user message. Never invent an id.
-- Return between 0 and 12 cues. Use fewer when the story is short. Zero cues is allowed.
-- Align start and end to the words the sound should accompany. Times are seconds.
-- start must be >= 0 and end must be <= duration_seconds. end must be greater than start.
-- description is one short sentence explaining the match.
+- catalog_id must be copied exactly from catalog in the user message. Never invent an id.
+- query is that same id, or null. It is not a search phrase.
+- kind is the role of the cue. Use null only when you mean oneshot.
+  - oneshot: a short event on the words that cause it (door creak, bark, footstep, chime, a thunder crack).
+  - ambient: a scene bed that keeps going. Rain, wind, crickets, or room tone should cover the whole span where that scene is still true, not a split-second hit on one word. Set start when the scene becomes audible and end when the context clearly changes (they go inside, the weather stops, the story moves on). Set end_at_scene_change true when that end is a scene boundary. If the bed should hold through the rest of the story, set end_at_scene_change true and set both end and until_seconds to null.
+  - fill_pause: a soft bed across one pause from the pauses list, and only when silence would feel empty while the scene still wants sound. Do not fill a pause that should stay quiet (a held breath, a reveal, the last moment before sleep).
+- Pauses of at least {long_pause_ms} ms are in pauses, including trailing silence. Shorter gaps are omitted. Leave a listed pause with no cue when the quiet is the point.
+- Overlap is expected. Keep an ambient bed playing and add oneshots on top at the same timestamps (rain under a door creak). Do not drop a bed to make room for an event.
+- gain_db is the level for the whole cue, in decibels. Null is unity. A bed that should sit under the story is usually between -6 and -12. Do not set a gain above 0.
+- until_seconds is an alternate end clock. Leave it null when end is set. Leave end null when until_seconds is set.
+- reason is one short sentence.
+- Return between 0 and 12 cues. Prefer one ambient cue for a whole scene instead of repeating a short rain hit. Zero cues is allowed.
+- Times are seconds. start must be >= 0. When end is a number it must be <= duration_seconds and greater than start.
 """
 
 
@@ -88,12 +100,11 @@ class HttpXaiClient:
         return align_cues(plan.cues, transcript.duration_seconds)
 
     def _complete(self, transcript: NormalizedTranscript, catalog: list[dict] | None) -> SfxPlan:
-        user = transcript.prompt_payload()
-        user["catalog"] = catalog or []
+        user = planning_user_payload(transcript, catalog)
         payload = {
             "model": self._model,
             "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt()},
                 {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
             ],
             "response_format": SFX_RESPONSE_FORMAT,
@@ -131,6 +142,47 @@ class HttpXaiClient:
             return _parse_plan(text)
         except ValueError as exc:
             raise XaiError(f"xAI cue JSON did not match the SFX schema: {exc}") from exc
+
+
+def system_prompt() -> str:
+    """Planner instructions, including the pause threshold the user payload uses."""
+
+    return _SYSTEM_PROMPT.format(long_pause_ms=LONG_PAUSE_MS)
+
+
+def planning_user_payload(
+    transcript: NormalizedTranscript,
+    catalog: list[dict] | None = None,
+) -> dict:
+    """Compact story clock plus catalog ids.
+
+    Word timings, segments, and long pauses only. This is not a Deepgram
+    document: no confidence, speaker, channels, or metadata.
+    """
+
+    compact = transcript.prompt_payload()
+    compact["pauses"] = transcript.pause_gaps(LONG_PAUSE_MS)
+    compact["long_pause_ms"] = LONG_PAUSE_MS
+    compact["catalog"] = catalog_for_prompt(catalog)
+    return compact
+
+
+def catalog_for_prompt(catalog: list[dict] | None) -> list[dict]:
+    """Id and label only, even if the caller passed a full catalog row."""
+
+    slim: list[dict] = []
+    for item in catalog or []:
+        if not isinstance(item, dict):
+            continue
+        slot_id = item.get("id") or item.get("catalog_id")
+        if not slot_id:
+            continue
+        entry = {"id": str(slot_id)}
+        label = item.get("label")
+        if label:
+            entry["label"] = str(label)
+        slim.append(entry)
+    return slim
 
 
 def _message_text(content: object) -> str:

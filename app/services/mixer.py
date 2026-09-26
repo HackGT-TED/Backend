@@ -3,11 +3,15 @@
 Mixing writes a temporary file (the system temp directory, ``/tmp`` on Vercel)
 and returns the bytes. Callers upload those bytes; nothing is kept on local disk.
 
-The timeline is silence of the story duration, with each clip overlaid at the
-cue's start timestamp and trimmed so it cannot spill past the cue end or the
-story end. Export uses pydub, which shells out to ffmpeg (libmp3lame). WAV
-bytes are decoded in-process. MP3 and OGG previews are decoded with ffmpeg.
-A system ``ffmpeg`` on ``PATH`` is used when present. Otherwise the
+The timeline is silence of the story duration. Every cue is overlaid at its
+own start, including cues that share a timestamp: a rain bed and a door creak
+are both mixed, not replaced. One-shots are trimmed to their window. Ambient
+and pause-fill beds are looped so a short preview lasts the whole window.
+Those beds are ducked by ``ONESHOT_DUCK_DB`` while a one-shot overlaps them.
+``gain_db`` on a clip, when set, is applied for the whole window before that
+duck. Export uses pydub, which shells out to ffmpeg (libmp3lame). WAV bytes
+are decoded in-process. MP3 and OGG previews are decoded with ffmpeg. A
+system ``ffmpeg`` on ``PATH`` is used when present. Otherwise the
 ``imageio-ffmpeg`` binary is used so a Vercel function can mix without a
 system package.
 """
@@ -21,9 +25,14 @@ from pathlib import Path
 
 from pydub import AudioSegment
 
+from app.schemas.sfx import BED_KINDS
+
 _FRAME_RATE = 44100
 _MIN_WINDOW_MS = 50
 _FADE_MS = 10
+# Extra attenuation applied to a bed only where a one-shot is actually sounding.
+ONESHOT_DUCK_DB = -6.0
+_LOOP_CROSSFADE_MS = 40
 
 
 class AudioMixError(RuntimeError):
@@ -32,12 +41,18 @@ class AudioMixError(RuntimeError):
 
 @dataclass(frozen=True)
 class TimedClip:
-    """Audio already downloaded, placed on the story clock."""
+    """Audio already downloaded, placed on the story clock.
+
+    ``kind`` is ``oneshot``, ``ambient``, or ``fill_pause``. Beds loop to fill
+    ``end_ms - start_ms``. ``gain_db`` is an optional whole-clip level.
+    """
 
     start_ms: int
     end_ms: int
     audio_bytes: bytes
     query: str = ""
+    kind: str = "oneshot"
+    gain_db: float | None = None
 
 
 def mix_sfx_bytes(clips: list[TimedClip], duration_ms: int) -> bytes:
@@ -57,15 +72,30 @@ def mix_sfx_mp3(clips: list[TimedClip], duration_ms: int, output_path: Path) -> 
 
 
 def place_clips(clips: list[TimedClip], duration_ms: int) -> AudioSegment:
-    """Overlay clips on a silent timeline. Length is exactly ``duration_ms``."""
+    """Overlay every clip on a silent timeline. Length is exactly ``duration_ms``.
+
+    Clips that occupy the same time are all mixed. Nothing is dropped because
+    another cue already covers that timestamp. Scene beds duck under one-shots.
+    """
 
     duration_ms = max(int(duration_ms), 1)
     timeline = AudioSegment.silent(duration=duration_ms, frame_rate=_FRAME_RATE)
+    prepared: list[tuple[AudioSegment, int, TimedClip]] = []
     for clip in clips:
         placed = _prepare_clip(clip, timeline, duration_ms)
         if placed is None:
             continue
         audio, start_ms = placed
+        prepared.append((audio, start_ms, clip))
+
+    oneshot_spans = [
+        (start_ms, start_ms + len(audio))
+        for audio, start_ms, clip in prepared
+        if not _is_bed(clip)
+    ]
+    for audio, start_ms, clip in prepared:
+        if _is_bed(clip) and oneshot_spans:
+            audio = _duck_under_oneshots(audio, start_ms, oneshot_spans)
         timeline = timeline.overlay(audio, position=start_ms)
     if len(timeline) > duration_ms:
         timeline = timeline[:duration_ms]
@@ -107,12 +137,102 @@ def _prepare_clip(
     window = end_ms - start_ms
     if window < _MIN_WINDOW_MS or start_ms >= duration_ms:
         return None
-    audio = _match_format(load_clip(clip.audio_bytes), timeline)[:window]
+    audio = _match_format(load_clip(clip.audio_bytes), timeline)
+    if _is_bed(clip):
+        audio = _loop_to_window(audio, window)
+    else:
+        audio = audio[:window]
     if len(audio) <= 0:
         return None
+    if clip.gain_db:
+        audio = audio.apply_gain(clip.gain_db)
     if len(audio) > _FADE_MS * 2:
         audio = audio.fade_in(_FADE_MS).fade_out(_FADE_MS)
     return audio, start_ms
+
+
+def _is_bed(clip: TimedClip) -> bool:
+    return clip.kind in BED_KINDS
+
+
+def _loop_to_window(audio: AudioSegment, window_ms: int) -> AudioSegment:
+    """Repeat a short bed so it fills ``window_ms``. Longer sources are trimmed."""
+
+    if len(audio) >= window_ms:
+        return audio[:window_ms]
+    if len(audio) <= 0:
+        return audio
+    crossfade = min(_LOOP_CROSSFADE_MS, len(audio) // 4)
+    if crossfade < 8:
+        looped = audio
+        while len(looped) < window_ms:
+            looped += audio
+        return looped[:window_ms]
+
+    looped = audio
+    step = max(len(audio) - crossfade, 1)
+    repeats = max((window_ms - len(looped) + step - 1) // step, 0)
+    for _ in range(repeats):
+        fade = min(crossfade, len(looped) // 2, len(audio) // 2)
+        if fade < 8:
+            looped += audio
+        else:
+            looped = looped.append(audio, crossfade=fade)
+    if len(looped) < window_ms:
+        looped += audio
+    return looped[:window_ms]
+
+
+def _duck_under_oneshots(
+    audio: AudioSegment,
+    start_ms: int,
+    oneshot_spans: list[tuple[int, int]],
+) -> AudioSegment:
+    """Lower a bed by ``ONESHOT_DUCK_DB`` where a one-shot is sounding."""
+
+    bed_end = start_ms + len(audio)
+    relative: list[tuple[int, int]] = []
+    for shot_start, shot_end in oneshot_spans:
+        overlap_start = max(start_ms, shot_start)
+        overlap_end = min(bed_end, shot_end)
+        if overlap_end - overlap_start < 1:
+            continue
+        relative.append((overlap_start - start_ms, overlap_end - start_ms))
+    for span_start, span_end in _merge_spans(relative):
+        audio = _attenuate_span(audio, span_start, span_end, ONESHOT_DUCK_DB)
+    return audio
+
+
+def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    merged: list[list[int]] = []
+    for start, end in sorted(spans):
+        if not merged or start > merged[-1][1]:
+            merged.append([start, end])
+        else:
+            merged[-1][1] = max(merged[-1][1], end)
+    return [(start, end) for start, end in merged]
+
+
+def _attenuate_span(
+    audio: AudioSegment,
+    start_ms: int,
+    end_ms: int,
+    gain_db: float,
+) -> AudioSegment:
+    start_ms = max(0, min(len(audio), int(start_ms)))
+    end_ms = max(start_ms, min(len(audio), int(end_ms)))
+    if end_ms - start_ms < 1 or gain_db == 0:
+        return audio
+    quieter = audio[start_ms:end_ms].apply_gain(gain_db)
+    rebuilt = audio[:start_ms] + quieter + audio[end_ms:]
+    if len(rebuilt) > len(audio):
+        return rebuilt[: len(audio)]
+    if len(rebuilt) < len(audio):
+        rebuilt += AudioSegment.silent(
+            duration=len(audio) - len(rebuilt),
+            frame_rate=audio.frame_rate,
+        )
+    return rebuilt
 
 
 def load_clip(audio_bytes: bytes) -> AudioSegment:

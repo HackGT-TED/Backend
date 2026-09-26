@@ -32,7 +32,11 @@ class ProcessStoryRequest(BaseModel):
 
 class CueOut(BaseModel):
     query: str
+    catalog_id: str = ""
     description: str = ""
+    reason: str = ""
+    kind: str = "oneshot"
+    gain_db: float | None = None
     start: float
     end: float
     start_ms: int

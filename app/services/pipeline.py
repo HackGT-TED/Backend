@@ -34,7 +34,11 @@ def run_pipeline(
     xai: XaiClient,
     freesound: FreeSoundClient,
 ) -> PipelineOutput:
-    """Ask xAI which catalog sounds fit, fetch those clips, and mix them on the story clock."""
+    """Ask xAI which catalog sounds fit, fetch those clips, and mix them on the story clock.
+
+    Every cue that downloads is placed, including two cues that share a timestamp.
+    The mixer overlays them; this loop does not keep only one sound per moment.
+    """
 
     choices = _catalog_for_planning()
     allowed = {item["id"] for item in choices}
@@ -79,6 +83,8 @@ def run_pipeline(
                 end_ms=end_ms,
                 audio_bytes=downloaded.audio_bytes,
                 query=cue.query,
+                kind=cue.kind or "oneshot",
+                gain_db=cue.gain_db,
             )
         )
 

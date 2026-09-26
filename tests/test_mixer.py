@@ -91,3 +91,94 @@ def test_empty_cue_list_is_silence_of_the_story_duration():
     timeline = place_clips([], 4_000)
     assert len(timeline) == 4_000
     assert timeline.rms == 0
+
+
+def test_overlapping_oneshots_are_mixed_together():
+    """Two clips at the same time both stay audible. One does not replace the other."""
+
+    duration_ms = 4_000
+    rain = TimedClip(
+        start_ms=1_000,
+        end_ms=3_000,
+        audio_bytes=sine_wav_bytes(4_000, frequency=440, amplitude=0.35),
+        query="rain",
+    )
+    door = TimedClip(
+        start_ms=1_000,
+        end_ms=3_000,
+        audio_bytes=sine_wav_bytes(4_000, frequency=880, amplitude=0.35),
+        query="door-creak",
+    )
+
+    mixed = place_clips([rain, door], duration_ms)
+    rain_only = place_clips([rain], duration_ms)
+
+    assert len(mixed) == duration_ms
+    assert _rms(mixed, 0, 800) == 0
+    assert _rms(mixed, 1_400, 2_600) > _rms(rain_only, 1_400, 2_600) * 1.15
+    assert _rms(mixed, 3_200, 4_000) == 0
+
+
+def test_ambient_bed_loops_for_the_whole_window_and_oneshot_does_not():
+    source = sine_wav_bytes(400, frequency=440, amplitude=0.5)
+    bed = place_clips(
+        [TimedClip(start_ms=0, end_ms=4_000, audio_bytes=source, query="rain", kind="ambient")],
+        4_000,
+    )
+    event = place_clips(
+        [TimedClip(start_ms=0, end_ms=4_000, audio_bytes=source, query="blip", kind="oneshot")],
+        4_000,
+    )
+
+    assert _rms(bed, 200, 350) > 1_000
+    assert _rms(bed, 3_200, 3_900) > 1_000
+    assert _rms(event, 50, 300) > 1_000
+    assert _rms(event, 600, 4_000) == 0
+
+
+def test_ambient_bed_and_oneshot_overlap_and_the_bed_ducks():
+    duration_ms = 8_000
+    bed = TimedClip(
+        start_ms=0,
+        end_ms=duration_ms,
+        audio_bytes=sine_wav_bytes(duration_ms, frequency=440, amplitude=0.5),
+        query="rain",
+        kind="ambient",
+    )
+    door = TimedClip(
+        start_ms=3_000,
+        end_ms=5_000,
+        audio_bytes=sine_wav_bytes(2_000, frequency=880, amplitude=0.02),
+        query="door-creak",
+        kind="oneshot",
+    )
+    door_loud = TimedClip(
+        start_ms=3_000,
+        end_ms=5_000,
+        audio_bytes=sine_wav_bytes(2_000, frequency=880, amplitude=0.4),
+        query="door-creak",
+        kind="oneshot",
+    )
+
+    ducked = place_clips([bed, door], duration_ms)
+    bed_only = _rms(ducked, 1_000, 2_500)
+    during_door = _rms(ducked, 3_400, 4_600)
+    after_door = _rms(ducked, 5_500, 7_500)
+    assert bed_only > 5_000
+    assert during_door < bed_only * 0.8
+    assert during_door > 500
+    assert after_door > bed_only * 0.8
+
+    layered = place_clips([bed, door_loud], duration_ms)
+    door_only = place_clips([door_loud], duration_ms)
+    assert _rms(layered, 3_400, 4_600) > _rms(door_only, 3_400, 4_600) * 1.05
+
+
+def test_gain_db_lowers_the_whole_clip():
+    source = sine_wav_bytes(2_000, frequency=440, amplitude=0.5)
+    loud = place_clips([TimedClip(start_ms=0, end_ms=2_000, audio_bytes=source, query="rain")], 2_000)
+    quiet = place_clips(
+        [TimedClip(start_ms=0, end_ms=2_000, audio_bytes=source, query="rain", gain_db=-12)],
+        2_000,
+    )
+    assert _rms(quiet, 200, 1_800) < _rms(loud, 200, 1_800) * 0.4
