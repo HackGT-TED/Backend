@@ -14,7 +14,14 @@ from app.services.freesound import (
     FreeSoundNotConfiguredError,
     FreeSoundRateLimitError,
 )
-from app.services.mixer import AudioMixError, TimedClip, load_clip, mix_sfx_bytes
+from app.services.mixer import (
+    AudioMixError,
+    TimedClip,
+    load_clip,
+    mix_on_story_bytes,
+    mix_sfx_bytes,
+    story_duration_ms,
+)
 from app.services.sfx_catalog import CATALOG_PATH, catalog_choices, load_catalog
 from app.services.xai import XaiClient
 
@@ -33,35 +40,22 @@ def run_pipeline(
     transcript: NormalizedTranscript,
     xai: XaiClient,
     freesound: FreeSoundClient,
-    catalog: dict | None = None,
+    story_bytes: bytes | None = None,
 ) -> PipelineOutput:
     """Ask xAI which catalog sounds fit, fetch those clips, and mix them on the story clock.
 
-    ``catalog`` is the active library (Supabase, or the checked-in JSON). When
-    it is omitted, the checked-in file is used. The same document is bound onto
-    ``freesound`` so downloads use those preview URLs.
+    When ``story_bytes`` is the uploaded recording, its decoded length is the
+    clock (word times stay where the transcriber put them) and the effects are
+    mixed onto that audio. Without it, the result is an effects-only track the
+    length of ``transcript.duration_seconds``.
     """
 
-    token = None
-    if catalog is not None:
-        bind = getattr(freesound, "bind_catalog", None)
-        if callable(bind):
-            token = bind(catalog)
-    try:
-        return _mix(transcript, xai, freesound, catalog)
-    finally:
-        reset = getattr(freesound, "reset_catalog", None)
-        if token is not None and callable(reset):
-            reset(token)
+    story_ms: int | None = None
+    if story_bytes is not None:
+        story_ms = story_duration_ms(story_bytes)
+        transcript = transcript.model_copy(update={"duration_seconds": story_ms / 1000})
 
-
-def _mix(
-    transcript: NormalizedTranscript,
-    xai: XaiClient,
-    freesound: FreeSoundClient,
-    catalog: dict | None,
-) -> PipelineOutput:
-    choices = _catalog_for_planning(catalog)
+    choices = _catalog_for_planning()
     allowed = {item["id"] for item in choices}
     cues = xai.plan_cues(transcript, choices)
     warnings: list[str] = []
@@ -112,8 +106,12 @@ def _mix(
             "FreeSound rate limit exceeded for every sound-effect cue"
         )
 
-    duration_ms = max(int(round(transcript.duration_seconds * 1000)), 1)
-    audio_bytes = mix_sfx_bytes(timed, duration_ms)
+    if story_ms is not None:
+        duration_ms = story_ms
+        audio_bytes = mix_on_story_bytes(story_bytes or b"", timed)
+    else:
+        duration_ms = max(int(round(transcript.duration_seconds * 1000)), 1)
+        audio_bytes = mix_sfx_bytes(timed, duration_ms)
     return PipelineOutput(
         duration_seconds=duration_ms / 1000,
         cues=cues,

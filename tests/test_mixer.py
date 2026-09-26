@@ -2,7 +2,7 @@
 
 from pydub import AudioSegment
 
-from app.services.mixer import TimedClip, load_clip, mix_sfx_mp3, place_clips
+from app.services.mixer import TimedClip, load_clip, mix_sfx_mp3, overlay_on_story, place_clips
 from tests.wavutil import sine_wav_bytes
 
 
@@ -85,6 +85,29 @@ def test_mp3_bytes_decode_without_ffprobe(tmp_path):
     )
     clip = load_clip(output.read_bytes())
     assert len(clip) > 500
+
+
+def test_effects_sit_on_the_recording_only_inside_the_cue():
+    """The story tone is present the whole time. The effect raises the level only in its window."""
+
+    story = sine_wav_bytes(4_000, frequency=220, amplitude=0.2)
+    effect = TimedClip(
+        start_ms=1_000,
+        end_ms=2_000,
+        audio_bytes=sine_wav_bytes(3_000, frequency=1400, amplitude=0.95),
+        query="dog-bark",
+    )
+
+    mixed = overlay_on_story(story, [effect])
+
+    assert len(mixed) == 4_000
+    before = _rms(mixed, 100, 900)
+    during = _rms(mixed, 1_100, 1_900)
+    after = _rms(mixed, 2_100, 3_900)
+    assert before > 500
+    assert after > 500
+    assert during > before * 1.4
+    assert during > after * 1.4
 
 
 def test_empty_cue_list_is_silence_of_the_story_duration():

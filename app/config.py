@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     deepgram_model: str = "nova-3"
     deepgram_language: str = "en"
 
+    # Used only when DEEPGRAM_API_KEY is empty. DeepGram.py uploads the file to Gladia.
+    gladia_api_key: str = ""
+
     cors_origins: str = "*"
     http_timeout_seconds: float = 60.0
 
