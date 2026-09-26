@@ -64,11 +64,11 @@ def test_transcribe_url_requests_word_timestamps():
         payload = client.transcribe_url(" https://example.test/story.wav ")
 
     transcript = DeepgramTranscript.model_validate(payload).normalized()
-    assert transcript.words[5].word == "rain"
-    assert transcript.words[5].start == 1.28
-    assert transcript.words[5].end == 1.7
-    assert transcript.segments[0].end == 2.6
-    assert transcript.duration_seconds == 8.5
+    assert transcript.words[1].word == "rain"
+    assert transcript.words[1].start == 0.75
+    assert transcript.words[1].end == 1.17
+    assert transcript.segments[0].end == 4.21
+    assert transcript.duration_seconds == 55.78
 
 
 def test_transcribe_bytes_sends_the_audio_body():
@@ -83,7 +83,7 @@ def test_transcribe_bytes_sends_the_audio_body():
         client = HttpDeepgramClient(_settings(), http=http)
         payload = client.transcribe_bytes(wav, "audio/wav")
 
-    assert payload["metadata"]["duration"] == 8.5
+    assert payload["metadata"]["duration"] == 55.78
 
 
 def test_rejected_key_is_an_auth_error():

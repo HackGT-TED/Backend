@@ -1,4 +1,0 @@
-# Extra dependency for this harness. Install the project first:
-#   pip install -e ".[dev]"
-#   pip install -r scripts/local_sfx_test/requirements.txt
-python-dotenv>=1.0.1

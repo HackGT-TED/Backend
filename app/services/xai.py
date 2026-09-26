@@ -28,7 +28,7 @@ from app.schemas.sfx import SFX_RESPONSE_FORMAT, SfxCue, SfxPlan, align_cues
 _SYSTEM_PROMPT = """You are the sound designer for a children's teddy bear that plays a grandparent's story.
 Given a transcript with word and segment timestamps, choose sound effects that match the story.
 Rules:
-- Return between 0 and 8 cues. Use fewer cues when the story is short. Zero cues is allowed when nothing in the story wants an effect.
+- Return between 0 and 12 cues. Use fewer cues when the story is short. Zero cues is allowed when nothing in the story wants an effect.
 - Align start and end to the words the effect should accompany. Times are seconds from the start of the story.
 - start must be >= 0 and end must be <= duration_seconds. end must be greater than start.
 - query is 2-6 words naming a concrete picture-book sound, such as "gentle rain ambience", "wooden door creak", "dog bark", "owl hoot", or "magic chime".

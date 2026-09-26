@@ -57,7 +57,7 @@ def test_plan_cues_posts_json_schema_and_aligns_to_the_story():
         assert body["model"] == "grok-4.7"
         assert body["response_format"]["type"] == "json_schema"
         assert body["response_format"]["json_schema"]["name"] == "sfx_plan"
-        assert "Once upon a time" in body["messages"][1]["content"]
+        assert "The rain began" in body["messages"][1]["content"]
         content = json.dumps(
             {
                 "cues": [
@@ -70,8 +70,8 @@ def test_plan_cues_posts_json_schema_and_aligns_to_the_story():
                     {
                         "query": "past the ending",
                         "description": "This window is outside the story.",
-                        "start": 20,
-                        "end": 21,
+                        "start": 80,
+                        "end": 81,
                     },
                 ]
             }

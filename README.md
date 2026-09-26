@@ -140,7 +140,7 @@ Cue planning uses xAI's [OpenAI-compatible Chat Completions API](https://docs.x.
 - A missing key fails in-process with `XaiNotConfiguredError` and does not open a socket.
 - `grok-4.7` reasons by default. The default HTTP timeout is 60 seconds; set `HTTP_TIMEOUT_SECONDS` higher if planning calls time out.
 
-The planner is asked for at most eight child-friendly foley or ambience cues aligned to the word timestamps. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped.
+The planner is asked for at most twelve child-friendly foley or ambience cues aligned to the word timestamps. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped.
 
 Example cue after alignment:
 
@@ -173,9 +173,15 @@ Preview MP3s are what this service mixes. `download_url` in the catalog is FreeS
 
 Set `FREESOUND_CATALOG_ONLY=false` only if you want the old per-cue text search (`GET /apiv2/search/text/`, `Authorization: Token` on the API host, first preview-bearing hit). Catalog mode does not send the token to the preview CDN.
 
-## Local catalog smoke test
+## Run the sample story
 
-`scripts/local_sfx_test/` plans one bedtime story with xAI and mixes clips you already have on disk. The prompt sends catalog ids only, not a FreeSound search. See `scripts/local_sfx_test/README.md` for the `.env` key, where to drop `rain.mp3` / `door-creak.wav`, and the `out/` files.
+`fixtures/deepgram_sample.json` is a Deepgram listen document for a bedtime story about 56 seconds long. To mix an SFX MP3 from it with the real pipeline (xAI cues, then previews from `assets/sfx_catalog/catalog.json`):
+
+```bash
+python tests/run_ingestion.py
+```
+
+That writes `out/story_sfx.mp3` (gitignored) and `out/story_sfx.json` with the cue timestamps. It needs `XAI_API_KEY`. Catalog slots need a `preview_url`; fill those with `python scripts/build_sfx_catalog.py` if they are still empty. The same JSON is what `POST /stories/process` accepts under `deepgram`.
 
 ## Deepgram
 
@@ -190,7 +196,7 @@ Direct transcription uses the [prerecorded listen API](https://developers.deepgr
 
 ## Deepgram JSON
 
-`fixtures/deepgram_sample.json` is a realistic prerecorded response: `metadata.duration`, `results.channels[0].alternatives[0]` (`transcript`, `words` with `start`/`end`/`punctuated_word`, paragraph sentences), and `results.utterances`. Unknown Deepgram fields are ignored.
+`fixtures/deepgram_sample.json` is a prerecorded listen response for that bedtime story: `metadata.duration`, `results.channels[0].alternatives[0]` (`transcript`, `words` with `start`/`end`/`punctuated_word`, paragraph sentences), and `results.utterances`. Unknown Deepgram fields are ignored.
 
 A smaller document also works:
 
@@ -247,7 +253,7 @@ app/services/freesound.py   catalog match + preview download
 app/services/sfx_catalog.py catalog load, match, and builder ranking
 assets/sfx_catalog/catalog.json  fixed kids-book sound slots
 scripts/build_sfx_catalog.py     one-shot FreeSound fill for those slots
-scripts/local_sfx_test/          local xAI catalog smoke test
+tests/run_ingestion.py           sample Deepgram JSON -> SFX MP3 via the pipeline
 app/services/mixer.py       silence + overlays -> MP3 bytes
 app/services/pipeline.py    wires planning, download, and mix
 app/services/deepgram.py   prerecorded POST /v1/listen

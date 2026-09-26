@@ -14,22 +14,21 @@ def test_sample_fixture_matches_a_prerecorded_response():
     payload = json.loads(FIXTURE.read_text())
     transcript = DeepgramTranscript.model_validate(payload).normalized()
 
-    assert transcript.text.startswith("Once upon a time the rain began to fall.")
-    assert len(transcript.words) == 20
-    assert transcript.words[0].display == "Once"
-    assert transcript.words[5].word == "rain"
-    assert transcript.words[5].start == 1.28
-    assert transcript.words[8].display == "fall."
-    assert [(segment.start, segment.end) for segment in transcript.segments] == [
-        (0.0, 2.6),
-        (3.4, 7.6),
-    ]
+    assert transcript.text.startswith("The rain began to tap on the cottage roof.")
+    assert len(transcript.words) == 88
+    assert transcript.words[0].display == "The"
+    assert transcript.words[1].word == "rain"
+    assert transcript.words[1].start == 0.75
+    assert transcript.words[1].end == 1.17
+    assert transcript.segments[0].text == "The rain began to tap on the cottage roof."
+    assert (transcript.segments[0].start, transcript.segments[0].end) == (0.35, 4.21)
+    assert len(transcript.segments) == 12
     # metadata.duration is longer than the last word, and the timeline keeps it.
-    assert transcript.duration_seconds == 8.5
+    assert transcript.duration_seconds == 55.78
 
     prompt = transcript.prompt_payload()
-    assert prompt["words"][0] == {"word": "Once", "start": 0.0, "end": 0.32}
-    assert prompt["duration_seconds"] == 8.5
+    assert prompt["words"][0] == {"word": "The", "start": 0.35, "end": 0.69}
+    assert prompt["duration_seconds"] == 55.78
 
 
 def test_extra_deepgram_fields_are_ignored():
@@ -37,7 +36,7 @@ def test_extra_deepgram_fields_are_ignored():
     payload["results"]["channels"][0]["alternatives"][0]["words"][0]["speaker_confidence"] = 0.4
     payload["results"]["channels"][0]["alternatives"][0]["words"][0]["language"] = "en"
     transcript = DeepgramTranscript.model_validate(payload).normalized()
-    assert transcript.words[0].display == "Once"
+    assert transcript.words[0].display == "The"
 
 
 def test_simplified_transcript_with_word_timestamps():
@@ -63,9 +62,9 @@ def test_paragraph_sentences_are_used_when_utterances_are_absent():
     payload = json.loads(FIXTURE.read_text())
     del payload["results"]["utterances"]
     transcript = DeepgramTranscript.model_validate(payload).normalized()
-    assert [segment.text for segment in transcript.segments] == [
-        "Once upon a time the rain began to fall.",
-        "Grandma opened the creaky door and a little bird sang hello.",
+    assert [segment.text for segment in transcript.segments[:2]] == [
+        "The rain began to tap on the cottage roof.",
+        "Grandma opened the creaky door, and the wind slipped inside.",
     ]
 
 

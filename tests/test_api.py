@@ -134,8 +134,8 @@ def test_process_stores_recording_and_serves_aligned_sfx():
         assert body["status"] == "ready"
         assert body["story_id"] == "story-1"
         assert body["narrator"] == "Grandma"
-        assert body["duration_seconds"] == 8.5
-        assert body["transcript_text"].startswith("Once upon a time")
+        assert body["duration_seconds"] == 55.78
+        assert body["transcript_text"].startswith("The rain began")
         assert [cue["start_ms"] for cue in body["cues"]] == [1280, 4550]
         assert [cue["end_ms"] for cue in body["cues"]] == [2600, 5500]
         assert body["warnings"] == []
@@ -154,7 +154,7 @@ def test_process_stores_recording_and_serves_aligned_sfx():
 
         detail = client.get(f"/stories/{body['id']}")
         assert detail.status_code == 200
-        assert detail.json()["transcript_json"]["metadata"]["duration"] == 8.5
+        assert detail.json()["transcript_json"]["metadata"]["duration"] == 55.78
         assert detail.json()["source_audio_url"] == "https://example.test/original.wav"
 
         sfx = client.get(f"/stories/{body['id']}/sfx", follow_redirects=False)
@@ -283,13 +283,13 @@ def test_transcribe_url_returns_word_timestamps():
         response = client.post("/stories/transcribe", json={"url": "https://example.test/story.wav"})
         assert response.status_code == 200
         body = response.json()
-        assert body["transcript_text"].startswith("Once upon a time")
-        assert body["duration_seconds"] == 8.5
+        assert body["transcript_text"].startswith("The rain began")
+        assert body["duration_seconds"] == 55.78
         rain = next(word for word in body["words"] if word["word"] == "rain")
-        assert rain["start"] == 1.28
-        assert rain["end"] == 1.7
-        assert body["segments"][0]["end"] == 2.6
-        assert body["deepgram"]["metadata"]["duration"] == 8.5
+        assert rain["start"] == 0.75
+        assert rain["end"] == 1.17
+        assert body["segments"][0]["end"] == 4.21
+        assert body["deepgram"]["metadata"]["duration"] == 55.78
     assert deepgram.urls == ["https://example.test/story.wav"]
 
 
@@ -331,5 +331,5 @@ def test_transcribe_multipart_audio_uses_bytes():
             data={"story_id": "ignored-for-transcribe"},
         )
         assert response.status_code == 200
-        assert response.json()["words"][0]["word"] == "Once"
+        assert response.json()["words"][0]["word"] == "The"
     assert deepgram.audio == [(len(b"RIFFfake-wav"), "audio/wav")]

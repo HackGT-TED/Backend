@@ -32,10 +32,5 @@ build/
 assets/sfx_catalog/previews/*
 !assets/sfx_catalog/previews/.gitkeep
 
-# Local smoke-test outputs and dropped-in catalog clips.
-scripts/local_sfx_test/out/
-scripts/local_sfx_test/catalog_clips/*.mp3
-scripts/local_sfx_test/catalog_clips/*.wav
-scripts/local_sfx_test/catalog_clips/*.ogg
-scripts/local_sfx_test/catalog_clips/*.flac
-scripts/local_sfx_test/catalog_clips/*.m4a
+# MP3 written by tests/run_ingestion.py
+out/
