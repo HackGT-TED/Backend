@@ -1,8 +1,10 @@
 # Kids-book SFX catalog
 
-This folder is a **fixed** list of picture-book and bedtime-story sounds. The story API does not search FreeSound while catalog mode is on (the default). It matches each cue to one entry in `catalog.json` and downloads that entry's preview.
+This folder is a **fixed** list of picture-book and children's-adventure sounds (100+ slots). The story API does not search FreeSound while catalog mode is on (the default). It matches each cue to one entry in `catalog.json` and downloads that entry's preview.
 
-`catalog.json` ships with the slots (dog bark, rain, a creaking door, and so on). `freesound_id` and `preview_url` stay empty until you run the builder once and listen to the results.
+Slots are grouped by category: `animals`, `weather`, `water`, `forest`, `home`, `magic`, `transport`, `city`, `story`, `time`, `action`, `creatures`, and `play`. Action slots stay cartoon-safe: a soft sword clash, a shield block, a punch whoosh, running footsteps, a tumble. Whooshes are specific: spell, punch, swing, arrow, and slide. Night pages use crickets, an owl, or wind.
+
+`catalog.json` ships with the slots filled in except for FreeSound. `freesound_id` and `preview_url` stay empty until you run the builder once and listen to the results. The builder does not invent ids.
 
 ## Regenerate
 

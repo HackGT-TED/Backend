@@ -1,5 +1,7 @@
 """Catalog matching and the one-shot FreeSound ranking."""
 
+import re
+
 from app.services.sfx_catalog import (
     CATALOG_PATH,
     load_catalog,
@@ -28,21 +30,85 @@ def _entry(**overrides) -> dict:
     return data
 
 
+_REQUIRED = {
+    "id",
+    "label",
+    "category",
+    "description",
+    "keywords",
+    "search_query",
+    "preferred_tags",
+    "min_duration",
+    "max_duration",
+    "freesound_id",
+    "freesound_url",
+    "preview_url",
+    "download_url",
+    "license",
+    "duration",
+    "avg_rating",
+    "num_downloads",
+    "username",
+    "status",
+    "preview_path",
+}
+_NULL_FREESOUND = {
+    "freesound_id",
+    "freesound_url",
+    "preview_url",
+    "download_url",
+    "license",
+    "duration",
+    "avg_rating",
+    "num_downloads",
+    "username",
+    "preview_path",
+}
+_KEBAB = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
 def test_checked_in_catalog_lists_picture_book_slots():
     catalog = load_catalog(CATALOG_PATH)
     entries = catalog["entries"]
-    assert 30 <= len(entries) <= 50
+    assert len(entries) >= 100
     ids = [entry["id"] for entry in entries]
     assert len(ids) == len(set(ids))
+    assert len({entry["search_query"] for entry in entries}) == len(entries)
     categories = {entry["category"] for entry in entries}
-    assert {"animals", "nature", "home", "magic", "transport", "story", "time"} <= categories
+    assert categories == {
+        "animals",
+        "weather",
+        "water",
+        "forest",
+        "home",
+        "magic",
+        "transport",
+        "city",
+        "story",
+        "time",
+        "action",
+        "creatures",
+        "play",
+    }
+    by_category: dict[str, int] = {}
     for entry in entries:
+        by_category[entry["category"]] = by_category.get(entry["category"], 0) + 1
+    assert by_category["action"] >= 15
+    assert by_category["animals"] >= 15
+    assert {"sword-clash", "shield-block", "whoosh-punch", "footsteps-run", "tumble"} <= set(ids)
+    assert {"twinkle", "night-ambience", "whoosh"}.isdisjoint(ids)
+    for entry in entries:
+        assert _REQUIRED <= set(entry)
+        assert _KEBAB.match(entry["id"])
         assert entry["status"] == "empty"
-        assert entry["freesound_id"] is None
-        assert entry["preview_url"] is None
+        assert entry["label"]
+        assert entry["description"]
         assert entry["keywords"]
         assert entry["search_query"]
-        assert entry["description"]
+        assert entry["preferred_tags"]
+        assert entry["min_duration"] < entry["max_duration"] <= 8
+        for field in _NULL_FREESOUND:
+            assert entry[field] is None
 
 
 def test_cue_matches_door_even_when_rain_is_listed_first():
@@ -73,6 +139,13 @@ def test_real_catalog_maps_common_story_cues():
         "children laughter": "kids-laughter",
         "footsteps on a wooden floor": "footsteps-wood",
         "dog bark": "dog-bark",
+        "soft sword clash": "sword-clash",
+        "cartoon punch whoosh": "whoosh-punch",
+        "running footsteps": "footsteps-run",
+        "dragon roar": "dragon-roar",
+        "shield block": "shield-block",
+        "babbling brook": "stream",
+        "soft wind": "wind",
     }
     for query, slot_id in expect.items():
         assert match_entry(entries, query)["id"] == slot_id
