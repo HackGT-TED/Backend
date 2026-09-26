@@ -50,6 +50,7 @@ def process_story(request: Request, body: ProcessStoryRequest) -> RecordingDetai
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    catalog = _catalog(request)
     store = _store(request)
     now = datetime.now(timezone.utc)
     record = RecordingRecord(
@@ -73,6 +74,7 @@ def process_story(request: Request, body: ProcessStoryRequest) -> RecordingDetai
             transcript,
             request.app.state.xai,
             request.app.state.freesound,
+            catalog=catalog,
         )
     except (XaiNotConfiguredError, XaiAuthError) as exc:
         _mark_failed(store, record, exc)
@@ -233,6 +235,18 @@ def _optional_str(value: object) -> str | None:
 
 def _store(request: Request) -> RecordingStore:
     return request.app.state.store
+
+
+def _catalog(request: Request) -> dict:
+    """Active SFX catalog for this request (Supabase, then the checked-in file)."""
+
+    try:
+        catalog = request.app.state.catalog_loader()
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not isinstance(catalog, dict):
+        raise HTTPException(status_code=503, detail="SFX catalog could not be read")
+    return catalog
 
 
 def _get_recording(request: Request, recording_id: str) -> RecordingRecord:

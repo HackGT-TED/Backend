@@ -1,8 +1,12 @@
-"""Supabase persistence for recordings and SFX MP3s.
+"""Supabase persistence for mixed story MP3s.
 
-The server uses the service role key. The anon key is not read. Row access goes
-through this API; the ``story-sfx`` bucket is public so clients can play the URL
-this module stores on the recording.
+The catalog document lives in ``app.services.catalog_store``. This module only
+keeps the minimal recording row (status plus public MP3 URL) and uploads the
+mix into the ``story-sfx`` bucket. Transcript text, cues, and warnings sit in
+the ``meta`` jsonb column so the story API can still return them.
+
+The server uses the service role key. The anon key is not read. Marketplace
+and social data are not stored here.
 """
 
 from dataclasses import dataclass, field
@@ -68,33 +72,33 @@ class SupabaseRecordingStore:
         self._bucket = settings.supabase_sfx_bucket
 
     def create(self, record: RecordingRecord) -> RecordingRecord:
-        self._execute(self._supabase().table(TABLE).insert(_to_row(record)))
+        execute_query(self._supabase().table(TABLE).insert(_to_row(record)))
         return record
 
     def save(self, record: RecordingRecord) -> RecordingRecord:
         record.updated_at = datetime.now(timezone.utc)
-        response = self._execute(
+        response = execute_query(
             self._supabase().table(TABLE).update(_to_row(record)).eq("id", record.id)
         )
-        if not _rows(response):
+        if not rows_of(response):
             raise SupabaseError(f"Recording {record.id} was not updated")
         return record
 
     def get(self, recording_id: str) -> RecordingRecord | None:
-        response = self._execute(
+        response = execute_query(
             self._supabase().table(TABLE).select("*").eq("id", recording_id)
         )
-        rows = _rows(response)
-        if not rows:
+        found = rows_of(response)
+        if not found:
             return None
-        return _from_row(rows[0])
+        return _from_row(found[0])
 
     def list(self, story_id: str | None = None) -> list[RecordingRecord]:
         query = self._supabase().table(TABLE).select("*")
         if story_id is not None:
             query = query.eq("story_id", story_id)
-        response = self._execute(query.order("created_at", desc=True))
-        return [_from_row(row) for row in _rows(response)]
+        response = execute_query(query.order("created_at", desc=True))
+        return [_from_row(row) for row in rows_of(response)]
 
     def upload_sfx(self, recording_id: str, audio_bytes: bytes) -> tuple[str, str]:
         if not audio_bytes:
@@ -118,81 +122,47 @@ class SupabaseRecordingStore:
         return path, url
 
     def _supabase(self) -> Any:
-        if self._client is not None:
-            return self._client
-        url = self._settings.supabase_url.strip()
-        key = self._settings.supabase_service_role_key.strip()
-        if not url or not key:
-            raise SupabaseNotConfiguredError(
-                "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set. "
-                "The API uses the service role key on the server only. "
-                "Do not ship that key to the web or kids apps. "
-                "SUPABASE_ANON_KEY is not used."
-            )
-        try:
-            from supabase import create_client
-        except ImportError as exc:
-            raise SupabaseError("The supabase package is not installed") from exc
-        try:
-            self._client = create_client(url, key)
-        except Exception as exc:
-            raise SupabaseError(f"Could not create the Supabase client: {exc}") from exc
+        if self._client is None:
+            self._client = open_supabase(self._settings)
         return self._client
 
-    def _execute(self, query: Any) -> Any:
-        try:
-            return query.execute()
-        except SupabaseNotConfiguredError:
-            raise
-        except SupabaseError:
-            raise
-        except Exception as exc:
-            raise SupabaseError(f"Supabase request failed: {exc}") from exc
+
+def open_supabase(settings: Settings) -> Any:
+    """Build a service-role client. The anon key is not read."""
+
+    url = settings.supabase_url.strip()
+    key = settings.supabase_service_role_key.strip()
+    if not url or not key:
+        raise SupabaseNotConfiguredError(
+            "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set. "
+            "The API uses the service role key on the server only. "
+            "Do not ship that key to the web or kids apps. "
+            "SUPABASE_ANON_KEY is not used."
+        )
+    try:
+        from supabase import create_client
+    except ImportError as exc:
+        raise SupabaseError("The supabase package is not installed") from exc
+    try:
+        return create_client(url, key)
+    except Exception as exc:
+        raise SupabaseError(f"Could not create the Supabase client: {exc}") from exc
 
 
-def _to_row(record: RecordingRecord) -> dict[str, Any]:
-    return {
-        "id": record.id,
-        "story_id": record.story_id,
-        "title": record.title,
-        "narrator": record.narrator,
-        "source_audio_url": record.source_audio_url,
-        "transcript_text": record.transcript_text,
-        "transcript_json": record.transcript_json,
-        "duration_seconds": record.duration_seconds,
-        "status": record.status,
-        "error_message": record.error_message,
-        "warnings": list(record.warnings),
-        "sfx_storage_path": record.sfx_storage_path,
-        "sfx_url": record.sfx_url,
-        "cues": list(record.cues),
-        "created_at": _iso(record.created_at),
-        "updated_at": _iso(record.updated_at),
-    }
+def execute_query(query: Any) -> Any:
+    """Run a PostgREST query and wrap client failures as ``SupabaseError``."""
+
+    try:
+        return query.execute()
+    except SupabaseNotConfiguredError:
+        raise
+    except SupabaseError:
+        raise
+    except Exception as exc:
+        raise SupabaseError(f"Supabase request failed: {exc}") from exc
 
 
-def _from_row(row: dict[str, Any]) -> RecordingRecord:
-    return RecordingRecord(
-        id=str(row["id"]),
-        story_id=row.get("story_id"),
-        title=row.get("title"),
-        narrator=row.get("narrator"),
-        source_audio_url=row.get("source_audio_url"),
-        transcript_text=row.get("transcript_text") or "",
-        transcript_json=row.get("transcript_json") or {},
-        duration_seconds=float(row.get("duration_seconds") or 0),
-        status=row.get("status") or "processing",
-        error_message=row.get("error_message"),
-        warnings=list(row.get("warnings") or []),
-        sfx_storage_path=row.get("sfx_storage_path"),
-        sfx_url=row.get("sfx_url"),
-        cues=list(row.get("cues") or []),
-        created_at=_parse_time(row.get("created_at")),
-        updated_at=_parse_time(row.get("updated_at")),
-    )
-
-
-def _rows(response: Any) -> list[dict[str, Any]]:
+def rows_of(response: Any) -> list[dict[str, Any]]:
     data = getattr(response, "data", None)
     if data is None and isinstance(response, dict):
         data = response.get("data")
@@ -201,13 +171,66 @@ def _rows(response: Any) -> list[dict[str, Any]]:
     return list(data)
 
 
-def _iso(value: datetime) -> str:
+def to_iso(value: datetime) -> str:
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone.utc)
     return value.isoformat()
 
 
-def _parse_time(value: Any) -> datetime:
+def _to_row(record: RecordingRecord) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "story_id": record.story_id,
+        "title": record.title,
+        "status": record.status,
+        "duration_seconds": record.duration_seconds,
+        "sfx_storage_path": record.sfx_storage_path,
+        "sfx_url": record.sfx_url,
+        "meta": {
+            "narrator": record.narrator,
+            "source_audio_url": record.source_audio_url,
+            "transcript_text": record.transcript_text,
+            "transcript_json": record.transcript_json,
+            "error_message": record.error_message,
+            "warnings": list(record.warnings),
+            "cues": list(record.cues),
+        },
+        "created_at": to_iso(record.created_at),
+        "updated_at": to_iso(record.updated_at),
+    }
+
+
+def _from_row(row: dict[str, Any]) -> RecordingRecord:
+    meta = row.get("meta") if isinstance(row.get("meta"), dict) else {}
+
+    def pick(key: str, default: Any = None) -> Any:
+        if key in meta:
+            return meta[key]
+        if key in row:
+            return row[key]
+        return default
+
+    return RecordingRecord(
+        id=str(row["id"]),
+        story_id=row.get("story_id"),
+        title=row.get("title"),
+        narrator=pick("narrator"),
+        source_audio_url=pick("source_audio_url"),
+        transcript_text=pick("transcript_text") or "",
+        transcript_json=pick("transcript_json") or {},
+        duration_seconds=float(row.get("duration_seconds") or 0),
+        status=row.get("status") or "processing",
+        error_message=pick("error_message"),
+        warnings=list(pick("warnings") or []),
+        sfx_storage_path=row.get("sfx_storage_path"),
+        sfx_url=row.get("sfx_url"),
+        cues=list(pick("cues") or []),
+        created_at=parse_time(row.get("created_at")),
+        updated_at=parse_time(row.get("updated_at")),
+    )
+
+
+def parse_time(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
     if isinstance(value, str) and value:

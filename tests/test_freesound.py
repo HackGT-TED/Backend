@@ -230,6 +230,58 @@ def test_catalog_only_missing_preview_does_not_search(tmp_path):
             client.download_for_query("wooden door creak")
 
 
+def test_bound_catalog_overrides_the_file(tmp_path):
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(
+        json.dumps(
+            {
+                "entries": [
+                    {
+                        "id": "door-creak",
+                        "label": "Door creak",
+                        "status": "approved",
+                        "freesound_id": 99,
+                        "preview_url": "https://cdn.example/door.mp3",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == "https://cdn.example/owl.mp3"
+        return httpx.Response(200, content=b"owl-bytes")
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        client = HttpFreeSoundClient(
+            _settings(freesound_catalog_only=True, sfx_catalog_path=str(catalog)),
+            http=http,
+        )
+        token = client.bind_catalog(
+            {
+                "entries": [
+                    {
+                        "id": "owl-hoot",
+                        "label": "Owl hoot",
+                        "status": "approved",
+                        "freesound_id": 11,
+                        "preview_url": "https://cdn.example/owl.mp3",
+                        "duration": 1.1,
+                    }
+                ]
+            }
+        )
+        try:
+            clip = client.download_for_query("owl-hoot")
+        finally:
+            client.reset_catalog(token)
+
+    assert clip.sound_id == 11
+    assert clip.audio_bytes == b"owl-bytes"
+    assert clip.preview_url == "https://cdn.example/owl.mp3"
+
+
 def test_catalog_only_rejects_queries_outside_the_pack(tmp_path):
     catalog = tmp_path / "catalog.json"
     catalog.write_text(

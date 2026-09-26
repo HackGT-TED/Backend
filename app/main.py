@@ -3,7 +3,7 @@
 Vercel loads the same ``app`` object. See ``[tool.vercel]`` in ``pyproject.toml``.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,6 +14,7 @@ from app.api.routes import router
 from app.config import Settings, get_settings
 from app.services.deepgram import DeepgramClient, HttpDeepgramClient
 from app.services.freesound import FreeSoundClient, HttpFreeSoundClient
+from app.services.catalog_store import SupabaseCatalogStore, load_runtime_catalog
 from app.services.store import RecordingStore, SupabaseRecordingStore
 from app.services.xai import HttpXaiClient, XaiClient
 
@@ -34,8 +35,14 @@ def create_app(
     freesound_client: FreeSoundClient | None = None,
     store: RecordingStore | None = None,
     deepgram_client: DeepgramClient | None = None,
+    catalog_loader: Callable[[], dict] | None = None,
 ) -> FastAPI:
-    """Build the API. Persistence is a Supabase client unless a test store is passed."""
+    """Build the API.
+
+    Story mixes still go through Supabase Storage. The allowed sound library
+    is loaded by ``catalog_loader`` (the active ``sfx_catalog`` row, with the
+    checked-in JSON as fallback) unless a test loader is passed.
+    """
 
     settings = settings or get_settings()
     app = FastAPI(
@@ -44,10 +51,14 @@ def create_app(
         summary="Turn grandparent story transcripts into a timed sound-effects track.",
         lifespan=_lifespan,
     )
+    catalog_store = SupabaseCatalogStore(settings)
+    loader = catalog_loader or (lambda: load_runtime_catalog(settings, store=catalog_store))
     app.state.settings = settings
+    app.state.catalog_store = catalog_store
+    app.state.catalog_loader = loader
     app.state.store = store if store is not None else SupabaseRecordingStore(settings)
     app.state.xai = xai_client or HttpXaiClient(settings)
-    app.state.freesound = freesound_client or HttpFreeSoundClient(settings)
+    app.state.freesound = freesound_client or HttpFreeSoundClient(settings, catalog_loader=loader)
     app.state.deepgram = deepgram_client or HttpDeepgramClient(settings)
 
     app.add_middleware(

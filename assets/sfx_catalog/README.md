@@ -4,6 +4,8 @@ This folder is a **fixed** list of picture-book and bedtime-story sounds. The st
 
 `catalog.json` ships with the slots (dog bark, rain, a creaking door, and so on). `freesound_id` and `preview_url` stay empty until you run the builder once and listen to the results.
 
+When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, the API reads the active `public.sfx_catalog` row (`id = 'active'`, `payload` jsonb) instead of this file. This file is the fallback for local and dev, and `SFX_CATALOG_PATH` forces a file. `python scripts/build_sfx_catalog.py --push` writes the file and stores that JSON in Supabase. The frontend marketplace is a different database.
+
 ## Regenerate
 
 From the repo root, with `FREESOUND_API_KEY` in `.env`:

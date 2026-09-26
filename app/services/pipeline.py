@@ -33,10 +33,35 @@ def run_pipeline(
     transcript: NormalizedTranscript,
     xai: XaiClient,
     freesound: FreeSoundClient,
+    catalog: dict | None = None,
 ) -> PipelineOutput:
-    """Ask xAI which catalog sounds fit, fetch those clips, and mix them on the story clock."""
+    """Ask xAI which catalog sounds fit, fetch those clips, and mix them on the story clock.
 
-    choices = _catalog_for_planning()
+    ``catalog`` is the active library (Supabase, or the checked-in JSON). When
+    it is omitted, the checked-in file is used. The same document is bound onto
+    ``freesound`` so downloads use those preview URLs.
+    """
+
+    token = None
+    if catalog is not None:
+        bind = getattr(freesound, "bind_catalog", None)
+        if callable(bind):
+            token = bind(catalog)
+    try:
+        return _mix(transcript, xai, freesound, catalog)
+    finally:
+        reset = getattr(freesound, "reset_catalog", None)
+        if token is not None and callable(reset):
+            reset(token)
+
+
+def _mix(
+    transcript: NormalizedTranscript,
+    xai: XaiClient,
+    freesound: FreeSoundClient,
+    catalog: dict | None,
+) -> PipelineOutput:
+    choices = _catalog_for_planning(catalog)
     allowed = {item["id"] for item in choices}
     cues = xai.plan_cues(transcript, choices)
     warnings: list[str] = []
@@ -97,11 +122,14 @@ def run_pipeline(
     )
 
 
-def _catalog_for_planning() -> list[dict]:
-    try:
-        catalog = load_catalog(CATALOG_PATH)
-    except (OSError, ValueError) as exc:
-        logger.warning("SFX catalog could not be loaded for planning: %s", exc)
+def _catalog_for_planning(catalog: dict | None = None) -> list[dict]:
+    if catalog is None:
+        try:
+            catalog = load_catalog(CATALOG_PATH)
+        except (OSError, ValueError) as exc:
+            logger.warning("SFX catalog could not be loaded for planning: %s", exc)
+            return []
+    if not isinstance(catalog, dict):
         return []
     entries = catalog.get("entries")
     if not isinstance(entries, list):

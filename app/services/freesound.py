@@ -1,8 +1,9 @@
 """FreeSound preview downloads for story cues.
 
-Catalog mode (the default) downloads one row from
-``assets/sfx_catalog/catalog.json`` by exact catalog id. It does not search
-FreeSound and it does not guess a similar sound.
+Catalog mode (the default) downloads one entry from the active SFX catalog
+by exact catalog id. The app loads that JSON from Supabase and falls back to
+``assets/sfx_catalog/catalog.json``. It does not search FreeSound and it does
+not guess a similar sound.
 
 Live search remains available when ``FREESOUND_CATALOG_ONLY=false``:
 
@@ -14,6 +15,7 @@ https://freesound.org/docs/api/resources_apiv2.html
 https://freesound.org/docs/api/authentication.html
 """
 
+import contextvars
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -40,6 +42,13 @@ class FreeSoundNotConfiguredError(FreeSoundError):
 
 class FreeSoundRateLimitError(FreeSoundError):
     """FreeSound kept returning HTTP 429 after retries."""
+
+
+# Request-local catalog so concurrent story mixes do not share one document.
+_bound_catalog: contextvars.ContextVar[dict | None] = contextvars.ContextVar(
+    "sfx_bound_catalog",
+    default=None,
+)
 
 
 class FreeSoundClient(Protocol):
@@ -77,11 +86,13 @@ class HttpFreeSoundClient:
         sleeper: Callable[[float], None] = time.sleep,
         max_retries: int = 3,
         backoff_seconds: float = 0.5,
+        catalog_loader: Callable[[], dict] | None = None,
     ) -> None:
         self._api_key = settings.freesound_api_key.strip()
         self._catalog_only = settings.freesound_catalog_only
         catalog_path = settings.sfx_catalog_path.strip()
         self._catalog_path = Path(catalog_path) if catalog_path else CATALOG_PATH
+        self._catalog_loader = catalog_loader
         self._catalog: dict | None = None
         self._search_url = settings.freesound_base_url.rstrip("/") + "/apiv2/search/text/"
         self._owns_http = http is None
@@ -93,6 +104,16 @@ class HttpFreeSoundClient:
     def close(self) -> None:
         if self._owns_http:
             self._http.close()
+
+    def bind_catalog(self, catalog: dict) -> contextvars.Token:
+        """Use this catalog document for later downloads in the current request."""
+
+        return _bound_catalog.set(catalog)
+
+    def reset_catalog(self, token: contextvars.Token) -> None:
+        """Drop a catalog bound with ``bind_catalog``."""
+
+        _bound_catalog.reset(token)
 
     def download_for_query(self, query: str) -> DownloadedClip:
         cleaned = _clean_query(query)
@@ -135,20 +156,34 @@ class HttpFreeSoundClient:
         return self._clip_from_download(query, result, preview_url)
 
     def _entries(self) -> list[dict]:
-        if self._catalog is None:
-            try:
-                self._catalog = load_catalog(self._catalog_path)
-            except FileNotFoundError as exc:
-                raise FreeSoundNotConfiguredError(
-                    f"SFX catalog not found at {self._catalog_path}. "
-                    "Restore assets/sfx_catalog/catalog.json."
-                ) from exc
-            except (OSError, ValueError) as exc:
-                raise FreeSoundError(f"SFX catalog at {self._catalog_path} could not be read: {exc}") from exc
-        entries = self._catalog.get("entries")
+        catalog = _bound_catalog.get()
+        if catalog is None:
+            if self._catalog is None:
+                self._catalog = self._load_catalog()
+            catalog = self._catalog
+        entries = catalog.get("entries") if isinstance(catalog, dict) else None
         if not isinstance(entries, list):
-            raise FreeSoundError(f"SFX catalog at {self._catalog_path} has no entries list")
+            raise FreeSoundError("SFX catalog has no entries list")
         return entries
+
+    def _load_catalog(self) -> dict:
+        if self._catalog_loader is not None:
+            try:
+                catalog = self._catalog_loader()
+            except (OSError, ValueError) as exc:
+                raise FreeSoundError(f"SFX catalog could not be read: {exc}") from exc
+            if not isinstance(catalog, dict):
+                raise FreeSoundError("SFX catalog could not be read")
+            return catalog
+        try:
+            return load_catalog(self._catalog_path)
+        except FileNotFoundError as exc:
+            raise FreeSoundNotConfiguredError(
+                f"SFX catalog not found at {self._catalog_path}. "
+                "Restore assets/sfx_catalog/catalog.json."
+            ) from exc
+        except (OSError, ValueError) as exc:
+            raise FreeSoundError(f"SFX catalog at {self._catalog_path} could not be read: {exc}") from exc
 
     def _clip_from_download(self, query: str, result: dict, preview_url: str) -> DownloadedClip:
         audio = self._download(preview_url)
