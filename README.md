@@ -1,13 +1,13 @@
 # HackGT TED story backend
 
-Grandparents record a story for a child. Deepgram turns that recording into JSON with word and segment timestamps. This service asks Muse Spark where the sound effects should go, downloads matching clips from FreeSound, and mixes an **SFX-only MP3** aligned to those timestamps. The grandparents' web app and the kids' app load the stored recording and the MP3.
+Grandparents record a story for a child. Deepgram turns that recording into JSON with word and segment timestamps. This service asks xAI where the sound effects should go, downloads matching clips from FreeSound, and mixes an **SFX-only MP3** aligned to those timestamps. The grandparents' web app and the kids' app load the stored recording and the MP3.
 
 v1 does not call Deepgram and does not upload the original voice recording. Clients send the Deepgram JSON they already have. Processing is synchronous: `POST /stories/process` finishes the mix before it responds.
 
 ```
 Deepgram JSON
   -> transcript text + word/segment timestamps
-  -> Muse Spark chat completions (structured SFX cues)
+  -> xAI chat completions (structured SFX cues)
   -> FreeSound text search + preview MP3 per cue
   -> silent timeline with clips overlaid at those timestamps
   -> SQLite row + GET /stories/{id}/sfx
@@ -36,7 +36,7 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Edit `.env` and set `MUSE_SPARK_API_KEY` and `FREESOUND_API_KEY`. Do not commit `.env`. The sample file has empty values only.
+Edit `.env` and set `XAI_API_KEY` and `FREESOUND_API_KEY`. Do not commit `.env`. The sample file has empty values only.
 
 ```bash
 uvicorn app.main:app --reload
@@ -50,9 +50,9 @@ Tables are created with SQLAlchemy `create_all` on startup. The default database
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `MUSE_SPARK_API_KEY` | to process stories | empty | Bearer token for Muse Spark. Meta's docs call this `MODEL_API_KEY`. |
-| `MUSE_SPARK_BASE_URL` | no | `https://api.meta.ai/v1` | OpenAI-compatible base URL. |
-| `MUSE_SPARK_MODEL` | no | `muse-spark-1.3` | Chat model id. |
+| `XAI_API_KEY` | to process stories | empty | Bearer token for xAI Chat Completions. |
+| `XAI_BASE_URL` | no | `https://api.x.ai/v1` | OpenAI-compatible base URL. |
+| `XAI_MODEL` | no | `grok-4.7` | Chat model id. `grok-4.7` supports structured outputs. |
 | `FREESOUND_API_KEY` | to download SFX | empty | FreeSound APIv2 token. |
 | `FREESOUND_BASE_URL` | no | `https://freesound.org` | API host. |
 | `DATABASE_URL` | no | `sqlite:///./data/hackgt.db` | SQLAlchemy URL. |
@@ -61,9 +61,9 @@ Tables are created with SQLAlchemy `create_all` on startup. The default database
 | `DEEPGRAM_LANGUAGE` | no | `en` | Reserved. |
 | `MEDIA_DIR` | no | `./media` | Where SFX MP3s are written. |
 | `CORS_ORIGINS` | no | `*` | Comma-separated browser origins for the web and kids apps. |
-| `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for Muse Spark and FreeSound. |
+| `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for xAI and FreeSound. Raise this if `grok-4.7` reasoning runs long. |
 
-A missing `MUSE_SPARK_API_KEY` or `FREESOUND_API_KEY` raises before any request is sent, and the API returns **503** with the recording id of the failed job.
+A missing `XAI_API_KEY` or `FREESOUND_API_KEY` raises before any request is sent, and the API returns **503** with the recording id of the failed job.
 
 ## API
 
@@ -83,7 +83,7 @@ jq -n --slurpfile dg fixtures/deepgram_sample.json \
 Failed external calls are stored as `status: "failed"` and returned as:
 
 - **503** — missing or rejected API key
-- **502** — Muse Spark failed or returned an unusable completion
+- **502** — xAI failed or returned an unusable completion
 - **429** — FreeSound rate-limited every cue
 - **422** — the transcript JSON could not be read
 - **500** — ffmpeg/pydub could not write the MP3
@@ -106,16 +106,17 @@ The SFX-only MP3 (`audio/mpeg`). This file is silence plus the placed effects. I
 
 Liveness check.
 
-## Muse Spark assumptions
+## xAI assumptions
 
-Muse Spark is Meta's text model, served by the [Model API](https://ai.developer.meta.com/docs/protocols/chat-completions) as **OpenAI-compatible Chat Completions**.
+Cue planning uses xAI's [OpenAI-compatible Chat Completions API](https://docs.x.ai/developers/model-capabilities/legacy/chat-completions).
 
-- Request: `POST {MUSE_SPARK_BASE_URL}/chat/completions`
-- Default URL: `https://api.meta.ai/v1/chat/completions`
-- Default model: `muse-spark-1.3` (some older docs show `muse-spark-1.1`; override with `MUSE_SPARK_MODEL`)
-- Auth header: `Authorization: Bearer $MUSE_SPARK_API_KEY`
-- Structured cues: `response_format.type = "json_schema"` with the `sfx_plan` schema (`query`, `description`, `start`, `end` in seconds). Chat Completions use `response_format`. The Responses API uses `text.format` instead; this client does not send that parameter.
-- A missing key fails in-process with `MuseSparkNotConfiguredError` and does not open a socket.
+- Request: `POST {XAI_BASE_URL}/chat/completions`
+- Default URL: `https://api.x.ai/v1/chat/completions`
+- Default model: `grok-4.7`, the chat model on the [Grok 4.7 model page](https://docs.x.ai/docs/models/grok-4.7). That page lists structured outputs as supported. Override with `XAI_MODEL`.
+- Auth header: `Authorization: Bearer $XAI_API_KEY`
+- Structured cues: `response_format.type = "json_schema"` with the `sfx_plan` schema (`query`, `description`, `start`, `end` in seconds). The client still accepts fenced JSON or a JSON object wrapped in prose if the message is not bare JSON.
+- A missing key fails in-process with `XaiNotConfiguredError` and does not open a socket.
+- `grok-4.7` reasons by default. The default HTTP timeout is 60 seconds; set `HTTP_TIMEOUT_SECONDS` higher if planning calls time out.
 
 The planner is asked for at most eight child-friendly foley or ambience cues aligned to the word timestamps. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped.
 
@@ -177,7 +178,7 @@ app/main.py                 create_app, uvicorn entry
 app/config.py               pydantic-settings
 app/schemas/deepgram.py     Deepgram JSON -> transcript
 app/schemas/sfx.py          cue schema and alignment
-app/services/muse_spark.py  Chat Completions client
+app/services/xai.py        xAI Chat Completions client
 app/services/freesound.py   search + preview download
 app/services/mixer.py       silence + overlays -> MP3
 app/services/pipeline.py    wires the three steps
