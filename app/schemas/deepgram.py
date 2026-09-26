@@ -128,6 +128,27 @@ class NormalizedTranscript(BaseModel):
             "segments": [segment.model_dump() for segment in self.segments],
         }
 
+    def sentence_windows(self) -> list[tuple[float, float]]:
+        """Sentence ranges used to keep sound effects to one per sentence.
+
+        Word punctuation is preferred, because a Deepgram utterance can hold
+        more than one sentence. Segments are the fallback, then the whole story.
+        """
+
+        from_words = _windows_from_words(self.words)
+        if from_words:
+            return from_words
+        from_segments = [
+            (segment.start, segment.end)
+            for segment in self.segments
+            if segment.end > segment.start
+        ]
+        if from_segments:
+            return from_segments
+        if self.duration_seconds > 0:
+            return [(0.0, self.duration_seconds)]
+        return []
+
 
 class DeepgramTranscript(BaseModel):
     """Full Deepgram response or a simplified transcript document."""
@@ -205,6 +226,29 @@ def _segments_from_results(
                 TranscriptSegment(text=sentence.text, start=sentence.start, end=sentence.end)
             )
     return segments
+
+
+def _windows_from_words(words: list[DeepgramWord]) -> list[tuple[float, float]]:
+    if not words:
+        return []
+    if not any(_ends_sentence(word.display) for word in words):
+        return []
+    windows: list[tuple[float, float]] = []
+    start: float | None = words[0].start
+    for word in words:
+        if start is None:
+            start = word.start
+        if _ends_sentence(word.display):
+            windows.append((start, word.end))
+            start = None
+    if start is not None:
+        windows.append((start, words[-1].end))
+    return [(begin, end) for begin, end in windows if end > begin]
+
+
+def _ends_sentence(text: str) -> bool:
+    stripped = text.rstrip("\"'”’")
+    return bool(stripped) and stripped[-1] in ".!?"
 
 
 def _duration_seconds(

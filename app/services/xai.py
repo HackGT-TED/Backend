@@ -23,17 +23,28 @@ import httpx
 
 from app.config import Settings
 from app.schemas.deepgram import NormalizedTranscript
-from app.schemas.sfx import SFX_RESPONSE_FORMAT, SfxCue, SfxPlan, align_cues
+from app.schemas.sfx import (
+    SFX_RESPONSE_FORMAT,
+    SfxCue,
+    SfxPlan,
+    align_cues,
+    limit_to_one_cue_per_sentence,
+)
 
-_SYSTEM_PROMPT = """You match moments in a children's story to sounds from a fixed catalog.
-Your only job is similarity: which catalog sound fits which words, and when it should play.
-Python downloads those clips from FreeSound and places them on the timeline. You do not fetch audio.
-Rules:
+_SYSTEM_PROMPT = """You choose sound effects for a children's story from a fixed catalog.
+Python downloads those clips and places them on the timeline. You do not fetch audio.
+
+Be sparse. The narration should stay easy to follow, so most of the story has no effect.
+- At most one cue per sentence. A sentence is one entry in "segments", or the words up to the next period, question mark, or exclamation mark.
+- Most sentences get zero cues. Add one only when that sentence plainly names the sound (rain, a bark, a door, thunder, a kettle, footsteps). If the match is vague or decorative, skip it.
+- Do not give a sentence a second effect. If two catalog rows could fit, keep the single closest one.
+- Do not reuse a sound on later sentences just because an earlier sentence mentioned it.
+- Zero cues is the right answer when nothing in the catalog is an obvious match.
 - catalog_id must be copied exactly from the catalog list in the user message. Never invent an id.
-- Return between 0 and 12 cues. Use fewer when the story is short. Zero cues is allowed.
-- Align start and end to the words the sound should accompany. Times are seconds.
+- start is the start time, in seconds, of the word this sound belongs to. end is when that sound should stop.
+- Keep a short event (a bark, a creak, a chime) inside the same sentence. A continuing sound such as rain may run until it would fade, still within duration_seconds.
 - start must be >= 0 and end must be <= duration_seconds. end must be greater than start.
-- description is one short sentence explaining the match.
+- description is one short sentence naming the word you matched.
 """
 
 
@@ -85,7 +96,8 @@ class HttpXaiClient:
                 "No request was sent."
             )
         plan = self._complete(transcript, catalog)
-        return align_cues(plan.cues, transcript.duration_seconds)
+        aligned = align_cues(plan.cues, transcript.duration_seconds)
+        return limit_to_one_cue_per_sentence(aligned, transcript.sentence_windows())
 
     def _complete(self, transcript: NormalizedTranscript, catalog: list[dict] | None) -> SfxPlan:
         user = transcript.prompt_payload()

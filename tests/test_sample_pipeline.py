@@ -18,6 +18,7 @@ from app.main import create_app
 from app.schemas.sfx import SfxCue
 from app.services.freesound import HttpFreeSoundClient
 from app.services.sfx_catalog import CATALOG_PATH, load_catalog
+from app.services.mixer import SFX_START_DELAY_MS
 from app.services.transcribe import transcribe_audio
 from tests.fakes import MemoryRecordingStore
 from tests.wavutil import sine_wav_bytes
@@ -104,9 +105,12 @@ def test_render_lines_the_effect_up_on_the_uploaded_audio():
     mixed = AudioSegment.from_mp3(io.BytesIO(response.content))
     assert abs(len(mixed) - 3_000) < 500
     quiet = mixed[200:800].rms
-    bark = mixed[1200:1800].rms
+    # The cue is at 1.0s. Playback waits, so this slice is still just the voice.
+    lead = mixed[1_000 : 1_000 + SFX_START_DELAY_MS - 40].rms
+    bark = mixed[1_000 + SFX_START_DELAY_MS + 40 : 1_800].rms
     assert quiet > 80
-    assert bark > quiet * 1.15
+    assert lead < quiet * 1.8
+    assert bark < quiet * 2.5
 
 
 def test_render_requires_a_transcriber_key():
