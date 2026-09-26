@@ -141,6 +141,50 @@ def test_empty_completion_is_an_error():
             client.plan_cues(_transcript())
 
 
+def test_describe_story_posts_a_summary_and_keeps_known_tags():
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["response_format"]["json_schema"]["name"] == "story_summary"
+        system = body["messages"][0]["content"]
+        assert "sound effects" in system
+        assert "spooky" in system
+        user = json.loads(body["messages"][1]["content"])
+        assert "The rain began" in user["transcript"]
+        assert user["duration_seconds"] == 55.78
+        assert "catalog" not in user
+        content = json.dumps(
+            {
+                "description": "  A calm bedtime story about rain on the roof.  ",
+                "hashtags": ["Calm", "#bedtime", "not-a-tag", "animals", "funny"],
+            }
+        )
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": content}}]},
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        client = HttpXaiClient(_settings(), http=http)
+        blurb = client.describe_story(_transcript())
+
+    assert blurb.description == "A calm bedtime story about rain on the roof."
+    assert blurb.hashtags == ["calm", "bedtime", "animals"]
+
+
+def test_describe_story_missing_key_fails_before_any_request():
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(500)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        client = HttpXaiClient(_settings(xai_api_key=""), http=http)
+        with pytest.raises(XaiNotConfiguredError, match="XAI_API_KEY"):
+            client.describe_story(_transcript())
+    assert calls["n"] == 0
+
+
 def test_align_cues_clamps_the_start_and_drops_tiny_windows():
     aligned = align_cues(
         [

@@ -41,6 +41,7 @@ def run_pipeline(
     xai: XaiClient,
     freesound: FreeSoundClient,
     story_bytes: bytes | None = None,
+    catalog: dict | None = None,
 ) -> PipelineOutput:
     """Ask xAI which catalog sounds fit, fetch those clips, and mix them on the story clock.
 
@@ -48,14 +49,36 @@ def run_pipeline(
     clock (word times stay where the transcriber put them) and the effects are
     mixed onto that audio. Without it, the result is an effects-only track the
     length of ``transcript.duration_seconds``.
+
+    ``catalog`` is the runtime document for this request. The planner sees it,
+    and it is bound on the downloader so a preview comes from that same document.
     """
 
+    token = None
+    bind = getattr(freesound, "bind_catalog", None)
+    if catalog is not None and callable(bind):
+        token = bind(catalog)
+    try:
+        return _plan_and_mix(transcript, xai, freesound, story_bytes, catalog)
+    finally:
+        reset = getattr(freesound, "reset_catalog", None)
+        if token is not None and callable(reset):
+            reset(token)
+
+
+def _plan_and_mix(
+    transcript: NormalizedTranscript,
+    xai: XaiClient,
+    freesound: FreeSoundClient,
+    story_bytes: bytes | None,
+    catalog: dict | None,
+) -> PipelineOutput:
     story_ms: int | None = None
     if story_bytes is not None:
         story_ms = story_duration_ms(story_bytes)
         transcript = transcript.model_copy(update={"duration_seconds": story_ms / 1000})
 
-    choices = _catalog_for_planning()
+    choices = _catalog_for_planning(catalog)
     allowed = {item["id"] for item in choices}
     cues = xai.plan_cues(transcript, choices)
     warnings: list[str] = []

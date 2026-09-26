@@ -15,6 +15,7 @@ from app.schemas.api import (
     ProcessStoryRequest,
     RecordingDetail,
     RecordingSummary,
+    StoryDescription,
     TranscriptOut,
     TranscriptSegmentOut,
     TranscriptWordOut,
@@ -147,6 +148,32 @@ async def render_story(request: Request) -> Response:
     return _audio_response(output)
 
 
+@router.post("/describe", response_model=StoryDescription)
+async def describe_story(request: Request) -> StoryDescription:
+    """Transcribe a recording and return a short catalog card. Does not mix audio.
+
+    Multipart ``audio`` uses the same transcriber as ``/stories/render``.
+    A JSON body ``{"url": "..."}`` asks Deepgram to fetch that URL.
+    """
+
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" in content_type:
+        data, mime, filename, _meta = await _read_audio_upload(request)
+        return await run_in_threadpool(_describe_upload, request, data, mime, filename)
+    if "application/json" in content_type:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=422, detail="JSON body must be an object")
+        url = payload.get("url") or payload.get("audio_url")
+        if not isinstance(url, str) or not url.strip():
+            raise HTTPException(status_code=422, detail="JSON body must include url")
+        return await run_in_threadpool(_describe_url, request, url.strip())
+    raise HTTPException(
+        status_code=422,
+        detail="Send a JSON body with url, or multipart form data with an audio file",
+    )
+
+
 @router.post("/process-audio", response_model=RecordingDetail, status_code=201)
 async def process_audio(request: Request) -> RecordingDetail:
     """Transcribe audio with Deepgram, then run the SFX pipeline and store it."""
@@ -263,6 +290,54 @@ def _render_upload(request: Request, data: bytes, mime: str, filename: str) -> P
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     except AudioMixError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _describe_upload(request: Request, data: bytes, mime: str, filename: str) -> StoryDescription:
+    try:
+        raw = transcribe_audio(
+            request.app.state.settings,
+            request.app.state.deepgram,
+            data,
+            mime,
+            filename,
+        )
+    except (TranscriptionNotConfiguredError, DeepgramNotConfiguredError, DeepgramAuthError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (TranscriptionError, DeepgramError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return _describe_transcript(request, raw, filename)
+
+
+def _describe_url(request: Request, url: str) -> StoryDescription:
+    raw = _call_deepgram(lambda: request.app.state.deepgram.transcribe_url(url))
+    return _describe_transcript(request, raw, url)
+
+
+def _describe_transcript(request: Request, raw: dict, audio: str) -> StoryDescription:
+    try:
+        transcript = DeepgramTranscript.model_validate(raw).normalized()
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=json.loads(exc.json())) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    describe = getattr(request.app.state.xai, "describe_story", None)
+    if describe is None:
+        raise HTTPException(status_code=500, detail="xAI client cannot describe a story")
+    try:
+        blurb = describe(transcript)
+    except (XaiNotConfiguredError, XaiAuthError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except XaiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return StoryDescription(
+        audio=audio,
+        duration_seconds=transcript.duration_seconds,
+        transcript_text=transcript.text,
+        description=blurb.description,
+        hashtags=list(blurb.hashtags),
+    )
 
 
 def _audio_response(output: PipelineOutput) -> Response:

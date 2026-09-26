@@ -7,8 +7,10 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
+from app.schemas.api import StoryBlurb
 from app.schemas.sfx import SfxCue
 from app.services.sfx_catalog import CATALOG_PATH, load_catalog
+from app.services.xai import XaiNotConfiguredError
 from app.services.freesound import (
     DownloadedClip,
     FreeSoundError,
@@ -51,17 +53,19 @@ class FakeFreeSound:
         )
 
 
-def _settings() -> Settings:
-    return Settings(
-        supabase_url="https://example.supabase.co",
-        supabase_service_role_key="service-role-test",
-        xai_api_key="test",
-        freesound_api_key="test",
-    )
+def _settings(**overrides) -> Settings:
+    data = {
+        "supabase_url": "https://example.supabase.co",
+        "supabase_service_role_key": "service-role-test",
+        "xai_api_key": "test",
+        "freesound_api_key": "test",
+    }
+    data.update(overrides)
+    return Settings(**data)
 
 
-def _client(xai, freesound, deepgram=None) -> tuple[TestClient, MemoryRecordingStore]:
-    app, store = _app(xai, freesound, deepgram)
+def _client(xai, freesound, deepgram=None, settings=None) -> tuple[TestClient, MemoryRecordingStore]:
+    app, store = _app(xai, freesound, deepgram, settings=settings)
     return TestClient(app), store
 
 
@@ -96,10 +100,10 @@ def _file_catalog() -> dict:
     return load_catalog(CATALOG_PATH)
 
 
-def _app(xai, freesound, deepgram=None, catalog_loader=None):
+def _app(xai, freesound, deepgram=None, catalog_loader=None, settings=None):
     store = MemoryRecordingStore()
     app = create_app(
-        settings=_settings(),
+        settings=settings or _settings(),
         xai_client=xai,
         freesound_client=freesound,
         store=store,
@@ -368,6 +372,88 @@ def test_process_plans_and_downloads_from_the_runtime_catalog():
     assert seen["ids"] == ["owl-hoot"]
     assert freesound.bound["entries"][0]["id"] == "owl-hoot"
     assert freesound.queries == ["owl-hoot"]
+
+
+class _CatalogXai:
+    def __init__(self, blurb: StoryBlurb) -> None:
+        self.blurb = blurb
+        self.described = 0
+
+    def plan_cues(self, transcript, catalog=None):
+        raise AssertionError("describing a story must not plan sound effects")
+
+    def describe_story(self, transcript):
+        self.described += 1
+        assert transcript.text.startswith("The rain began")
+        return self.blurb
+
+
+def test_describe_upload_returns_a_catalog_card_without_mixing():
+    deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
+    xai = _CatalogXai(
+        StoryBlurb(
+            description="  Rain taps the roof while a family stays inside.  ",
+            hashtags=["Calm", "#bedtime", "marketplace", "animals", "funny"],
+        )
+    )
+    freesound = FakeFreeSound()
+    client, _store = _client(
+        xai,
+        freesound,
+        deepgram,
+        settings=_settings(deepgram_api_key="dg-test"),
+    )
+    with client:
+        response = client.post(
+            "/stories/describe",
+            files={"audio": ("story.mp3", b"not-real-audio", "audio/mpeg")},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["audio"] == "story.mp3"
+        assert body["duration_seconds"] == 55.78
+        assert body["transcript_text"].startswith("The rain began")
+        assert body["description"] == "Rain taps the roof while a family stays inside."
+        assert body["hashtags"] == ["calm", "bedtime", "animals"]
+        assert "cues" not in body
+    assert deepgram.audio == [(len(b"not-real-audio"), "audio/mpeg")]
+    assert xai.described == 1
+    assert freesound.queries == []
+
+
+def test_describe_url_uses_the_same_transcript():
+    deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
+    xai = _CatalogXai(StoryBlurb(description="A quiet rain story.", hashtags=["calm"]))
+    client, _store = _client(xai, FakeFreeSound(), deepgram)
+    with client:
+        response = client.post(
+            "/stories/describe",
+            json={"url": "https://example.test/story.mp3"},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["audio"] == "https://example.test/story.mp3"
+        assert body["description"] == "A quiet rain story."
+        assert body["hashtags"] == ["calm"]
+    assert deepgram.urls == ["https://example.test/story.mp3"]
+    assert xai.described == 1
+
+
+def test_describe_missing_xai_key_is_503():
+    deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
+
+    class MissingKey:
+        def describe_story(self, transcript):
+            raise XaiNotConfiguredError("XAI_API_KEY is not set. No request was sent.")
+
+    client, _store = _client(MissingKey(), FakeFreeSound(), deepgram)
+    with client:
+        response = client.post(
+            "/stories/describe",
+            json={"url": "https://example.test/story.mp3"},
+        )
+        assert response.status_code == 503
+        assert "XAI_API_KEY" in response.json()["detail"]
 
 
 def test_transcribe_multipart_audio_uses_bytes():
