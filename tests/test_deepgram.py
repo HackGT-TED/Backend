@@ -30,6 +30,19 @@ def test_sample_fixture_matches_a_prerecorded_response():
     assert prompt["words"][0] == {"word": "The", "start": 0.35, "end": 0.69}
     assert prompt["duration_seconds"] == 55.78
 
+    pauses = transcript.pause_gaps(600)
+    assert len(pauses) == 12
+    assert pauses[0] == {
+        "start": 4.21,
+        "end": 5.46,
+        "gap_ms": 1250,
+        "after": "roof.",
+        "before": "Grandma",
+    }
+    assert pauses[-1]["before"] == ""
+    assert pauses[-1]["gap_ms"] == 2400
+    assert transcript.pause_gaps(2000) == [pauses[-1]]
+
 
 def test_extra_deepgram_fields_are_ignored():
     payload = json.loads(FIXTURE.read_text())

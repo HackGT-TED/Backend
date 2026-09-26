@@ -128,6 +128,28 @@ class NormalizedTranscript(BaseModel):
             "segments": [segment.model_dump() for segment in self.segments],
         }
 
+    def pause_gaps(self, min_gap_ms: int = 600) -> list[dict]:
+        """Word gaps and trailing silence at least ``min_gap_ms`` long.
+
+        These are the pauses the planner may leave quiet or fill with a bed.
+        Shorter gaps stay out of the prompt.
+        """
+
+        min_gap = max(int(min_gap_ms), 0) / 1000
+        words = sorted(self.words, key=lambda word: (word.start, word.end))
+        gaps: list[dict] = []
+        for previous, following in zip(words, words[1:]):
+            gap = following.start - previous.end
+            if gap + 1e-6 >= min_gap:
+                gaps.append(
+                    _pause_gap(previous.end, following.start, previous.display, following.display)
+                )
+        if words:
+            tail = self.duration_seconds - words[-1].end
+            if tail + 1e-6 >= min_gap:
+                gaps.append(_pause_gap(words[-1].end, self.duration_seconds, words[-1].display, ""))
+        return gaps
+
 
 class DeepgramTranscript(BaseModel):
     """Full Deepgram response or a simplified transcript document."""
@@ -205,6 +227,16 @@ def _segments_from_results(
                 TranscriptSegment(text=sentence.text, start=sentence.start, end=sentence.end)
             )
     return segments
+
+
+def _pause_gap(start: float, end: float, after: str, before: str) -> dict:
+    return {
+        "start": round(float(start), 3),
+        "end": round(float(end), 3),
+        "gap_ms": int(round((end - start) * 1000)),
+        "after": after,
+        "before": before,
+    }
 
 
 def _duration_seconds(
