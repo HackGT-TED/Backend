@@ -242,6 +242,8 @@ External calls are mocked. No API keys and no network:
 pytest
 ```
 
+`tests/test_sample_pipeline.py` is the end-to-end sample. It posts audio to `/transcribe` (`DeepGram.py` talks to Gladia), and it also runs a Deepgram `/v1/listen` response. Both transcripts go through xAI, which returns catalog ids. Python downloads only those FreeSound previews from `assets/sfx_catalog/catalog.json` and mixes the MP3.
+
 `tests/test_mixer.py` checks timestamp alignment directly: a clip longer than its cue is audible only inside that window, and the timeline length stays equal to the story.
 
 ## Layout

@@ -36,13 +36,17 @@ def test_checked_in_catalog_lists_picture_book_slots():
     assert len(ids) == len(set(ids))
     categories = {entry["category"] for entry in entries}
     assert {"animals", "nature", "home", "magic", "transport", "story", "time"} <= categories
+    filled = 0
     for entry in entries:
-        assert entry["status"] == "empty"
-        assert entry["freesound_id"] is None
-        assert entry["preview_url"] is None
+        assert entry["status"] in {"empty", "pending", "approved", "rejected"}
         assert entry["keywords"]
         assert entry["search_query"]
         assert entry["description"]
+        if entry.get("preview_url"):
+            filled += 1
+            assert str(entry["preview_url"]).startswith("http")
+            assert entry["freesound_id"]
+    assert filled >= 30
 
 
 def test_cue_matches_door_even_when_rain_is_listed_first():

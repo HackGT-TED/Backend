@@ -29,7 +29,8 @@ def transcribe(payload: AudioPayload):
         raise HTTPException(status_code=502, detail=f"Gladia error: {e.response.text}")
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
-    return transcript
+    # fullDeepGramPipeline returns a JSON string of Gladia utterances.
+    return json.loads(transcript)
 
 
 
