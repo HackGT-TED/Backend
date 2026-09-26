@@ -2,7 +2,15 @@
 
 from pydub import AudioSegment
 
-from app.services.mixer import TimedClip, load_clip, mix_sfx_mp3, overlay_on_story, place_clips
+from app.services.mixer import (
+    SFX_START_DELAY_MS,
+    TimedClip,
+    effect_gain_db,
+    load_clip,
+    mix_sfx_mp3,
+    overlay_on_story,
+    place_clips,
+)
 from tests.wavutil import sine_wav_bytes
 
 
@@ -35,12 +43,13 @@ def test_timestamp_alignment_places_effects_on_the_story_clock(tmp_path):
     timeline = place_clips([rain, door], duration_ms)
 
     assert len(timeline) == duration_ms
-    # Margins avoid MP3-unrelated millisecond rounding at the cue boundary.
-    assert _rms(timeline, 0, 1_900) == 0
-    assert _rms(timeline, 2_100, 3_400) > 1_000
-    assert _rms(timeline, 3_600, 6_900) == 0
-    assert _rms(timeline, 7_100, 7_900) > 1_000
-    assert _rms(timeline, 8_100, 10_000) == 0
+    # Playback starts SFX_START_DELAY_MS after the cue, and ends that much later.
+    assert _rms(timeline, 0, 2_000 + SFX_START_DELAY_MS - 40) == 0
+    assert _rms(timeline, 2_000 + SFX_START_DELAY_MS + 80, 3_400) > 1_000
+    assert _rms(timeline, 3_500 + SFX_START_DELAY_MS + 80, 6_900) == 0
+    assert _rms(timeline, 7_000, 7_000 + SFX_START_DELAY_MS - 40) == 0
+    assert _rms(timeline, 7_000 + SFX_START_DELAY_MS + 80, 7_900) > 1_000
+    assert _rms(timeline, 8_000 + SFX_START_DELAY_MS + 80, 10_000) == 0
 
     output = tmp_path / "sfx.mp3"
     mix_sfx_mp3([rain, door], duration_ms, output)
@@ -65,8 +74,8 @@ def test_cues_that_run_past_the_story_are_clamped():
     )
 
     assert len(timeline) == duration_ms
-    assert _rms(timeline, 0, 8_900) == 0
-    assert _rms(timeline, 9_100, 9_900) > 1_000
+    assert _rms(timeline, 0, 9_000 + SFX_START_DELAY_MS - 40) == 0
+    assert _rms(timeline, 9_000 + SFX_START_DELAY_MS + 80, 9_950) > 1_000
 
 
 def test_mp3_bytes_decode_without_ffprobe(tmp_path):
@@ -87,10 +96,11 @@ def test_mp3_bytes_decode_without_ffprobe(tmp_path):
     assert len(clip) > 500
 
 
-def test_effects_sit_on_the_recording_only_inside_the_cue():
-    """The story tone is present the whole time. The effect raises the level only in its window."""
+def test_effects_start_late_and_stay_under_the_narration():
+    """The bark waits past the word start, and it does not jump over the voice."""
 
-    story = sine_wav_bytes(4_000, frequency=220, amplitude=0.2)
+    story_bytes = sine_wav_bytes(4_000, frequency=220, amplitude=0.2)
+    story = load_clip(story_bytes)
     effect = TimedClip(
         start_ms=1_000,
         end_ms=2_000,
@@ -98,16 +108,45 @@ def test_effects_sit_on_the_recording_only_inside_the_cue():
         query="dog-bark",
     )
 
-    mixed = overlay_on_story(story, [effect])
+    mixed = overlay_on_story(story_bytes, [effect])
+    play_at = 1_000 + SFX_START_DELAY_MS
 
     assert len(mixed) == 4_000
-    before = _rms(mixed, 100, 900)
-    during = _rms(mixed, 1_100, 1_900)
-    after = _rms(mixed, 2_100, 3_900)
-    assert before > 500
-    assert after > 500
-    assert during > before * 1.4
-    assert during > after * 1.4
+    lead = mixed[1_000 : play_at - 20]
+    voice_lead = story[1_000 : play_at - 20]
+    assert abs(lead.dBFS - voice_lead.dBFS) < 0.5
+
+    played = mixed[play_at + 40 : 1_900]
+    voice = story[play_at + 40 : 1_900]
+    assert played.rms > voice.rms
+    assert played.dBFS < voice.dBFS + 3
+
+    after = mixed[2_000 + SFX_START_DELAY_MS + 80 : 3_800]
+    assert abs(after.dBFS - story[2_000 + SFX_START_DELAY_MS + 80 : 3_800].dBFS) < 0.5
+
+
+def test_quieter_narration_ducks_the_effect_further():
+    effect = load_clip(sine_wav_bytes(1_000, frequency=1400, amplitude=0.95))
+    loud = load_clip(sine_wav_bytes(1_000, frequency=220, amplitude=0.5))
+    quiet = load_clip(sine_wav_bytes(1_000, frequency=220, amplitude=0.05))
+    silent = AudioSegment.silent(duration=1_000, frame_rate=44100)
+
+    gain_loud = effect_gain_db(loud, effect)
+    gain_quiet = effect_gain_db(quiet, effect)
+    ducked_loud = effect.apply_gain(gain_loud)
+    ducked_quiet = effect.apply_gain(gain_quiet)
+
+    assert gain_quiet < gain_loud <= 0
+    assert ducked_loud.dBFS <= loud.dBFS - 10
+    assert ducked_quiet.dBFS <= quiet.dBFS - 10
+    assert ducked_quiet.dBFS < ducked_loud.dBFS - 6
+    assert effect.apply_gain(effect_gain_db(silent, effect)).dBFS < -24
+
+
+def test_an_already_quiet_effect_is_not_boosted():
+    voice = load_clip(sine_wav_bytes(800, frequency=220, amplitude=0.5))
+    effect = load_clip(sine_wav_bytes(800, frequency=1400, amplitude=0.01))
+    assert effect_gain_db(voice, effect) == 0
 
 
 def test_empty_cue_list_is_silence_of_the_story_duration():

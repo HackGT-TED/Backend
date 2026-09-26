@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass
 
 from app.schemas.deepgram import NormalizedTranscript
-from app.schemas.sfx import SfxCue
+from app.schemas.sfx import SfxCue, limit_to_one_cue_per_sentence
 from app.services.freesound import (
     FreeSoundClient,
     FreeSoundError,
@@ -50,8 +50,9 @@ def run_pipeline(
     mixed onto that audio. Without it, the result is an effects-only track the
     length of ``transcript.duration_seconds``.
 
-    ``catalog`` is the runtime document for this request. The planner sees it,
-    and it is bound on the downloader so a preview comes from that same document.
+    ``catalog`` is the runtime document (the Supabase row, or the checked-in
+    file). It is what the planner sees, and it is bound on the downloader for
+    this call so a preview comes from that same document.
     """
 
     token = None
@@ -80,8 +81,13 @@ def _plan_and_mix(
 
     choices = _catalog_for_planning(catalog)
     allowed = {item["id"] for item in choices}
-    cues = xai.plan_cues(transcript, choices)
+    planned = xai.plan_cues(transcript, choices)
+    cues = limit_to_one_cue_per_sentence(planned, transcript.sentence_windows())
     warnings: list[str] = []
+    if len(cues) < len(planned):
+        warnings.append(
+            f"Dropped {len(planned) - len(cues)} cue(s) so each sentence has at most one sound effect"
+        )
     timed: list[TimedClip] = []
     rate_limited = 0
 

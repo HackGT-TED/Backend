@@ -8,7 +8,7 @@ import pytest
 
 from app.config import Settings
 from app.schemas.deepgram import DeepgramTranscript
-from app.schemas.sfx import align_cues, SfxCue
+from app.schemas.sfx import align_cues, limit_to_one_cue_per_sentence, SfxCue
 from app.services.xai import (
     HttpXaiClient,
     XaiAuthError,
@@ -58,6 +58,9 @@ def test_plan_cues_posts_json_schema_and_aligns_to_the_story():
         assert body["response_format"]["type"] == "json_schema"
         assert body["response_format"]["json_schema"]["name"] == "sfx_plan"
         assert "catalog_id" in body["response_format"]["json_schema"]["schema"]["properties"]["cues"]["items"]["required"]
+        system = body["messages"][0]["content"].lower()
+        assert "at most one cue per sentence" in system
+        assert "zero cues" in system
         user = json.loads(body["messages"][1]["content"])
         assert "The rain began" in user["transcript"]
         assert user["catalog"] == [{"id": "rain", "label": "Rain"}]
@@ -141,21 +144,30 @@ def test_empty_completion_is_an_error():
             client.plan_cues(_transcript())
 
 
-def test_describe_story_posts_a_summary_and_keeps_known_tags():
+def test_plan_cues_keeps_one_effect_per_sentence():
     def handler(request: httpx.Request) -> httpx.Response:
-        body = json.loads(request.content)
-        assert body["response_format"]["json_schema"]["name"] == "story_summary"
-        system = body["messages"][0]["content"]
-        assert "sound effects" in system
-        assert "spooky" in system
-        user = json.loads(body["messages"][1]["content"])
-        assert "The rain began" in user["transcript"]
-        assert user["duration_seconds"] == 55.78
-        assert "catalog" not in user
         content = json.dumps(
             {
-                "description": "  A calm bedtime story about rain on the roof.  ",
-                "hashtags": ["Calm", "#bedtime", "not-a-tag", "animals", "funny"],
+                "cues": [
+                    {
+                        "catalog_id": "rain",
+                        "description": "Rain in the first sentence.",
+                        "start": 1.0,
+                        "end": 2.2,
+                    },
+                    {
+                        "catalog_id": "tap",
+                        "description": "A second effect in the same sentence.",
+                        "start": 2.4,
+                        "end": 3.4,
+                    },
+                    {
+                        "catalog_id": "dog-bark",
+                        "description": "The bark in a later sentence.",
+                        "start": 16.0,
+                        "end": 17.5,
+                    },
+                ]
             }
         )
         return httpx.Response(
@@ -165,24 +177,21 @@ def test_describe_story_posts_a_summary_and_keeps_known_tags():
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as http:
         client = HttpXaiClient(_settings(), http=http)
-        blurb = client.describe_story(_transcript())
+        cues = client.plan_cues(_transcript())
 
-    assert blurb.description == "A calm bedtime story about rain on the roof."
-    assert blurb.hashtags == ["calm", "bedtime", "animals"]
+    assert [cue.catalog_id for cue in cues] == ["rain", "dog-bark"]
 
 
-def test_describe_story_missing_key_fails_before_any_request():
-    calls = {"n": 0}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        calls["n"] += 1
-        return httpx.Response(500)
-
-    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
-        client = HttpXaiClient(_settings(xai_api_key=""), http=http)
-        with pytest.raises(XaiNotConfiguredError, match="XAI_API_KEY"):
-            client.describe_story(_transcript())
-    assert calls["n"] == 0
+def test_limit_drops_a_second_cue_in_the_same_sentence():
+    kept = limit_to_one_cue_per_sentence(
+        [
+            SfxCue(catalog_id="rain", description="rain", start=1.2, end=2.5),
+            SfxCue(catalog_id="tap", description="tap", start=2.1, end=3.0),
+            SfxCue(catalog_id="door", description="door", start=6.0, end=7.5),
+        ],
+        [(0.35, 4.21), (5.46, 9.96)],
+    )
+    assert [cue.catalog_id for cue in kept] == ["rain", "door"]
 
 
 def test_align_cues_clamps_the_start_and_drops_tiny_windows():

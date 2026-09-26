@@ -279,6 +279,7 @@ def _render_upload(request: Request, data: bytes, mime: str, filename: str) -> P
             request.app.state.xai,
             request.app.state.freesound,
             story_bytes=data,
+            catalog=_catalog(request),
         )
     except (XaiNotConfiguredError, XaiAuthError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

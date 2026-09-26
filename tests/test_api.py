@@ -131,8 +131,8 @@ def test_process_stores_recording_and_serves_aligned_sfx():
             SfxCue(
                 query="door-creak",
                 description="The creaky door.",
-                start=4.55,
-                end=5.5,
+                start=6.82,
+                end=8.0,
             ),
         ]
     )
@@ -147,8 +147,8 @@ def test_process_stores_recording_and_serves_aligned_sfx():
         assert body["narrator"] == "Grandma"
         assert body["duration_seconds"] == 55.78
         assert body["transcript_text"].startswith("The rain began")
-        assert [cue["start_ms"] for cue in body["cues"]] == [1280, 4550]
-        assert [cue["end_ms"] for cue in body["cues"]] == [2600, 5500]
+        assert [cue["start_ms"] for cue in body["cues"]] == [1280, 6820]
+        assert [cue["end_ms"] for cue in body["cues"]] == [2600, 8000]
         assert body["warnings"] == []
         assert body["sfx_url"] == (
             "https://example.supabase.co/storage/v1/object/public/story-sfx/"

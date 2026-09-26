@@ -97,7 +97,7 @@ curl -sS -X POST http://127.0.0.1:8000/stories/render \
   -o out/story_with_sfx.mp3
 ```
 
-Needs `XAI_API_KEY` and `DEEPGRAM_API_KEY` (or `GLADIA_API_KEY`). The decoded file length is the clock, so a cue cannot run past the recording. Effects are trimmed to their cue window and lowered about 8 dB so the voice stays in front. Response headers: `X-Story-Duration-Seconds`, `X-Story-Cue-Count`, and `X-Story-Warnings` when a cue was skipped.
+Needs `XAI_API_KEY` and `DEEPGRAM_API_KEY` (or `GLADIA_API_KEY`). The decoded file length is the clock, so a cue cannot run past the recording. Each effect starts about 150 ms after its cue time, so a bark does not lead the word, and its level follows the narration in that window so it stays under the voice. Response headers: `X-Story-Duration-Seconds`, `X-Story-Cue-Count`, and `X-Story-Warnings` when a cue was skipped.
 
 The same job from a file on disk:
 
@@ -195,7 +195,7 @@ Cue planning uses xAI's [OpenAI-compatible Chat Completions API](https://docs.x.
 
 xAI only chooses which catalog sounds are similar to the story and when they play. It does not download audio and it does not mix. Python drops any id that is not in the catalog, fetches those preview files, and places them on the recording.
 
-The planner is asked for at most twelve cues. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped.
+The planner is asked for at most one cue per sentence, and only when that sentence clearly names the sound. Python drops any extra cue that lands in a sentence that already has one. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped. Playback starts about 150 ms after the cue's start time.
 
 Example cue after alignment:
 
@@ -303,9 +303,9 @@ External calls are mocked. No API keys and no network:
 pytest
 ```
 
-`tests/test_sample_pipeline.py` posts a WAV to `POST /stories/render`. Transcription, xAI, and FreeSound are faked. The mixer is real: the effect is louder only inside its cue, the MP3 length follows the upload (not a longer transcript duration), and the FreeSound client is asked only for that catalog preview URL.
+`tests/test_sample_pipeline.py` posts a WAV to `POST /stories/render`. Transcription, xAI, and FreeSound are faked. The mixer is real: the effect stays under the narration and begins slightly after the cue, the MP3 length follows the upload (not a longer transcript duration), and the FreeSound client is asked only for that catalog preview URL.
 
-`tests/test_mixer.py` checks the same alignment on the PCM timeline, before MP3 export, and the effects-only track used by `/stories/process`.
+`tests/test_mixer.py` checks that alignment on the PCM timeline, before MP3 export, and the effects-only track used by `/stories/process`.
 
 ## Layout
 
