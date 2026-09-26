@@ -173,6 +173,10 @@ Preview MP3s are what this service mixes. `download_url` in the catalog is FreeS
 
 Set `FREESOUND_CATALOG_ONLY=false` only if you want the old per-cue text search (`GET /apiv2/search/text/`, `Authorization: Token` on the API host, first preview-bearing hit). Catalog mode does not send the token to the preview CDN.
 
+## Local catalog smoke test
+
+`scripts/local_sfx_test/` plans one bedtime story with xAI and mixes clips you already have on disk. The prompt sends catalog ids only, not a FreeSound search. See `scripts/local_sfx_test/README.md` for the `.env` key, where to drop `rain.mp3` / `door-creak.wav`, and the `out/` files.
+
 ## Deepgram
 
 Direct transcription uses the [prerecorded listen API](https://developers.deepgram.com/docs/pre-recorded-audio):
@@ -243,6 +247,7 @@ app/services/freesound.py   catalog match + preview download
 app/services/sfx_catalog.py catalog load, match, and builder ranking
 assets/sfx_catalog/catalog.json  fixed kids-book sound slots
 scripts/build_sfx_catalog.py     one-shot FreeSound fill for those slots
+scripts/local_sfx_test/          local xAI catalog smoke test
 app/services/mixer.py       silence + overlays -> MP3 bytes
 app/services/pipeline.py    wires planning, download, and mix
 app/services/deepgram.py   prerecorded POST /v1/listen
