@@ -17,7 +17,7 @@ Deepgram JSON
 ## Requirements
 
 - Python 3.11 or 3.12 (3.13 is supported via the `audioop-lts` dependency declared in `pyproject.toml`)
-- [ffmpeg](https://ffmpeg.org/) on `PATH`, built with libmp3lame. pydub uses it to decode FreeSound MP3 previews and to write the SFX file.
+- [ffmpeg](https://ffmpeg.org/) on `PATH`, built with libmp3lame, for local mixes. pydub uses it to write the SFX file. If `ffmpeg` is missing, the app falls back to the `imageio-ffmpeg` binary shipped with the Python dependencies (this is what the Vercel function uses).
 
 ```bash
 # Debian/Ubuntu
@@ -166,6 +166,23 @@ A smaller document also works:
 ```
 
 Story length is `metadata.duration` when that is longer than the last word, so trailing silence stays in the SFX track. Each clip is trimmed to its cue window so a long preview cannot spill into the next sentence. The timeline is padded or trimmed to that duration before ffmpeg encodes the MP3. Encoder framing can add a few dozen milliseconds around that exact length.
+
+## Deploy on Vercel
+
+The FastAPI app is one Python function. Vercel loads `app` from `app/main.py` via `[tool.vercel] entrypoint = "app.main:app"` in `pyproject.toml`. `vercel.json` sets `maxDuration` to 60 seconds because cue planning, FreeSound downloads, and the mix can outlast the platform default.
+
+1. Create a Supabase project and run `supabase/schema.sql` in the SQL editor.
+2. Import this repo as a Vercel project. The Python runtime picks up FastAPI from `pyproject.toml`.
+3. In the Vercel project settings, set the same variables as `.env.example`:
+   - `XAI_API_KEY`, `XAI_BASE_URL`, `XAI_MODEL`
+   - `FREESOUND_API_KEY`, `FREESOUND_BASE_URL`
+   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SFX_BUCKET`
+   - `DEEPGRAM_API_KEY`, `DEEPGRAM_MODEL`, `DEEPGRAM_LANGUAGE` when audio is transcribed on the server
+   - `CORS_ORIGINS` for the web and kids app origins
+   - `HTTP_TIMEOUT_SECONDS` if `grok-4.7` needs longer than 60 seconds (the function `maxDuration` must be at least that long)
+4. Deploy. `GET /health` should return `{"status": "ok"}`.
+
+The function filesystem is ephemeral. Mixes use the temp directory and are uploaded to Storage before the response returns. Do not put `SUPABASE_SERVICE_ROLE_KEY` in a client bundle.
 
 ## Tests
 

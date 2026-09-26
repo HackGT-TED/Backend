@@ -2,7 +2,7 @@
 
 from pydub import AudioSegment
 
-from app.services.mixer import TimedClip, mix_sfx_mp3, place_clips
+from app.services.mixer import TimedClip, load_clip, mix_sfx_mp3, place_clips
 from tests.wavutil import sine_wav_bytes
 
 
@@ -67,6 +67,24 @@ def test_cues_that_run_past_the_story_are_clamped():
     assert len(timeline) == duration_ms
     assert _rms(timeline, 0, 8_900) == 0
     assert _rms(timeline, 9_100, 9_900) > 1_000
+
+
+def test_mp3_bytes_decode_without_ffprobe(tmp_path):
+    output = tmp_path / "sfx.mp3"
+    mix_sfx_mp3(
+        [
+            TimedClip(
+                start_ms=0,
+                end_ms=800,
+                audio_bytes=sine_wav_bytes(800, frequency=440),
+                query="rain",
+            )
+        ],
+        1_000,
+        output,
+    )
+    clip = load_clip(output.read_bytes())
+    assert len(clip) > 500
 
 
 def test_empty_cue_list_is_silence_of_the_story_duration():

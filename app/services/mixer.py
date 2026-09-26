@@ -6,10 +6,15 @@ and returns the bytes. Callers upload those bytes; nothing is kept on local disk
 The timeline is silence of the story duration, with each clip overlaid at the
 cue's start timestamp and trimmed so it cannot spill past the cue end or the
 story end. Export uses pydub, which shells out to ffmpeg (libmp3lame). WAV
-bytes are decoded in-process; MP3 and OGG previews need ffmpeg on ``PATH``.
+bytes are decoded in-process. MP3 and OGG previews are decoded with ffmpeg.
+A system ``ffmpeg`` on ``PATH`` is used when present. Otherwise the
+``imageio-ffmpeg`` binary is used so a Vercel function can mix without a
+system package.
 """
 
 import io
+import shutil
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,6 +80,7 @@ def place_clips(clips: list[TimedClip], duration_ms: int) -> AudioSegment:
 
 def export_mp3(timeline: AudioSegment, output_path: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    AudioSegment.converter = ffmpeg_exe()
     handle = None
     try:
         handle = timeline.export(str(output_path), format="mp3", bitrate="128k")
@@ -112,25 +118,54 @@ def _prepare_clip(
 def load_clip(audio_bytes: bytes) -> AudioSegment:
     if not audio_bytes:
         raise AudioMixError("Downloaded clip was empty")
-    buffer = io.BytesIO(audio_bytes)
     try:
         if audio_bytes[:4] == b"RIFF":
-            return AudioSegment.from_wav(buffer)
-        if audio_bytes[:3] == b"ID3" or _looks_like_mp3(audio_bytes):
-            return AudioSegment.from_file(buffer, format="mp3")
-        if audio_bytes[:4] == b"OggS":
-            return AudioSegment.from_file(buffer, format="ogg")
-        return AudioSegment.from_file(buffer)
+            return AudioSegment.from_wav(io.BytesIO(audio_bytes))
+        wav = _transcode_to_wav(audio_bytes)
+        return AudioSegment.from_wav(io.BytesIO(wav))
     except AudioMixError:
         raise
     except Exception as exc:
         raise AudioMixError(f"Could not decode SFX clip: {exc}") from exc
 
 
-def _looks_like_mp3(audio_bytes: bytes) -> bool:
-    if len(audio_bytes) < 2:
-        return False
-    return audio_bytes[0] == 0xFF and audio_bytes[1] in {0xFB, 0xF3, 0xF2, 0xFA}
+def ffmpeg_exe() -> str:
+    """Return a usable ffmpeg binary, preferring one already on ``PATH``."""
+
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    try:
+        import imageio_ffmpeg
+    except ImportError as exc:
+        raise AudioMixError(
+            "ffmpeg is not on PATH. Install ffmpeg locally, or install project "
+            "dependencies so the imageio-ffmpeg binary can be used on Vercel."
+        ) from exc
+    return imageio_ffmpeg.get_ffmpeg_exe()
+
+
+def _transcode_to_wav(audio_bytes: bytes) -> bytes:
+    proc = subprocess.run(
+        [
+            ffmpeg_exe(),
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            "pipe:0",
+            "-f",
+            "wav",
+            "pipe:1",
+        ],
+        input=audio_bytes,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout.startswith(b"RIFF"):
+        detail = proc.stderr.decode("utf-8", errors="replace")[:300]
+        raise AudioMixError(f"ffmpeg could not decode the SFX clip: {detail}")
+    return proc.stdout
 
 
 def _match_format(clip: AudioSegment, timeline: AudioSegment) -> AudioSegment:
