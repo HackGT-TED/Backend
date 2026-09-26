@@ -4,7 +4,9 @@
 Python sends the file to Deepgram (or Gladia when only GLADIA_API_KEY is set).
 xAI only chooses which catalog ids match the words and when they play. Python
 downloads those FreeSound previews and lays them on the recording at those times.
-The output length is the recording.
+The output length is the recording. A second xAI call, separate from cue
+planning, writes a one-sentence description and a few hashtags into the JSON
+sidecar next to the cue list.
 
     python scripts/render_story.py story.wav
     python scripts/render_story.py story.m4a -o out/story_with_sfx.mp3
@@ -33,7 +35,7 @@ from app.services.freesound import HttpFreeSoundClient  # noqa: E402
 from app.services.pipeline import run_pipeline  # noqa: E402
 from app.services.sfx_catalog import CATALOG_PATH, load_catalog  # noqa: E402
 from app.services.transcribe import TranscriptionError, transcribe_audio  # noqa: E402
-from app.services.xai import HttpXaiClient  # noqa: E402
+from app.services.xai import HttpXaiClient, XaiError  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -88,6 +90,11 @@ def main(argv: list[str] | None = None) -> int:
             print(str(exc), file=sys.stderr)
             return 1
         output = run_pipeline(transcript, xai, freesound, story_bytes=audio)
+        try:
+            blurb = xai.describe_story(transcript)
+        except XaiError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
     finally:
         deepgram.close()
         xai.close()
@@ -102,6 +109,9 @@ def main(argv: list[str] | None = None) -> int:
                 "audio": str(args.audio),
                 "catalog": str(CATALOG_PATH),
                 "duration_seconds": output.duration_seconds,
+                "transcript_text": transcript.text,
+                "description": blurb.description,
+                "hashtags": blurb.hashtags,
                 "warnings": output.warnings,
                 "cues": [
                     {
@@ -122,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
     print(f"story duration: {output.duration_seconds:.2f}s")
+    print(blurb.description)
+    print("hashtags: " + ", ".join(blurb.hashtags))
     print(f"cues: {len(output.cues)}")
     for cue in output.cues:
         print(f"  {cue.start:.2f}-{cue.end:.2f}s  {cue.catalog_id}")

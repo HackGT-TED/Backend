@@ -22,6 +22,7 @@ from typing import Protocol
 import httpx
 
 from app.config import Settings
+from app.schemas.api import STORY_HASHTAGS, StoryBlurb
 from app.schemas.deepgram import NormalizedTranscript
 from app.schemas.sfx import (
     SFX_RESPONSE_FORMAT,
@@ -46,6 +47,35 @@ Be sparse. The narration should stay easy to follow, so most of the story has no
 - start must be >= 0 and end must be <= duration_seconds. end must be greater than start.
 - description is one short sentence naming the word you matched.
 """
+
+_SUMMARY_PROMPT = """You write a catalog card for one children's story recording.
+You are given the transcript from speech-to-text. You do not choose sound effects and you do not time anything.
+
+- description is one sentence a parent could scan in a list of stories.
+- hashtags are 1 to 3 tags, and each tag is copied from this list only: spooky, calm, funny, adventure, bedtime, animals, nature, family, magic.
+- Pick the tags that actually fit the story. Leave the others out.
+"""
+
+SUMMARY_RESPONSE_FORMAT: dict = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "story_summary",
+        "description": "One-sentence catalog description and a few hashtags.",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "description": {"type": "string"},
+                "hashtags": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": list(STORY_HASHTAGS)},
+                },
+            },
+            "required": ["description", "hashtags"],
+        },
+    },
+}
 
 
 class XaiClient(Protocol):
@@ -99,16 +129,57 @@ class HttpXaiClient:
         aligned = align_cues(plan.cues, transcript.duration_seconds)
         return limit_to_one_cue_per_sentence(aligned, transcript.sentence_windows())
 
+    def describe_story(self, transcript: NormalizedTranscript) -> StoryBlurb:
+        """One-sentence catalog description from the transcript. Does not plan cues."""
+
+        if not self._api_key:
+            raise XaiNotConfiguredError(
+                "XAI_API_KEY is not set. Add it to .env (see .env.example). "
+                "No request was sent."
+            )
+        if not transcript.text.strip():
+            raise XaiError("Transcript was empty, so no description was requested.")
+        text = self._post_completion(
+            [
+                {"role": "system", "content": _SUMMARY_PROMPT},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "transcript": transcript.text,
+                            "duration_seconds": transcript.duration_seconds,
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+            SUMMARY_RESPONSE_FORMAT,
+        )
+        try:
+            return _parse_summary(text)
+        except ValueError as exc:
+            raise XaiError(f"xAI summary JSON could not be read: {exc}") from exc
+
     def _complete(self, transcript: NormalizedTranscript, catalog: list[dict] | None) -> SfxPlan:
         user = transcript.prompt_payload()
         user["catalog"] = catalog or []
-        payload = {
-            "model": self._model,
-            "messages": [
+        text = self._post_completion(
+            [
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
             ],
-            "response_format": SFX_RESPONSE_FORMAT,
+            SFX_RESPONSE_FORMAT,
+        )
+        try:
+            return _parse_plan(text)
+        except ValueError as exc:
+            raise XaiError(f"xAI cue JSON did not match the SFX schema: {exc}") from exc
+
+    def _post_completion(self, messages: list[dict], response_format: dict) -> str:
+        payload = {
+            "model": self._model,
+            "messages": messages,
+            "response_format": response_format,
         }
         try:
             response = self._http.post(
@@ -139,10 +210,7 @@ class HttpXaiClient:
         text = _message_text(content)
         if not text.strip():
             raise XaiError("xAI returned an empty completion")
-        try:
-            return _parse_plan(text)
-        except ValueError as exc:
-            raise XaiError(f"xAI cue JSON did not match the SFX schema: {exc}") from exc
+        return text
 
 
 def _message_text(content: object) -> str:
@@ -160,14 +228,23 @@ def _message_text(content: object) -> str:
 
 
 def _parse_plan(text: str) -> SfxPlan:
+    return SfxPlan.model_validate_json(_json_object(text))
+
+
+def _parse_summary(text: str) -> StoryBlurb:
+    return StoryBlurb.model_validate_json(_json_object(text))
+
+
+def _json_object(text: str) -> str:
     cleaned = _strip_fences(text)
     try:
-        return SfxPlan.model_validate_json(cleaned)
+        json.loads(cleaned)
     except ValueError:
         extracted = _extract_json_object(cleaned)
         if extracted is None:
             raise
-        return SfxPlan.model_validate_json(extracted)
+        return extracted
+    return cleaned
 
 
 def _strip_fences(text: str) -> str:

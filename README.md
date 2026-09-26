@@ -105,7 +105,30 @@ The same job from a file on disk:
 python scripts/render_story.py story.wav -o out/story_with_sfx.mp3
 ```
 
-That also writes `out/story_with_sfx.json` with the cue times. `out/` is gitignored.
+That also writes `out/story_with_sfx.json` with the cue times, the transcript, a one-sentence description, and a few hashtags. The description is a second xAI call. It does not change which sounds are mixed. `out/` is gitignored.
+
+### `POST /stories/describe`
+
+Transcribe a recording and return catalog metadata. Does not plan cues or mix audio.
+
+Multipart `audio` (25 MB max), or JSON `{"url": "https://.../story.mp3"}`.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/stories/describe \
+  -F "audio=@story.mp3;type=audio/mpeg"
+```
+
+```json
+{
+  "audio": "story.mp3",
+  "duration_seconds": 17.232,
+  "transcript_text": "The dog barked once.",
+  "description": "A short outdoor story where a dog barks.",
+  "hashtags": ["animals", "calm"]
+}
+```
+
+`description` is one sentence. `hashtags` is one to three of: `spooky`, `calm`, `funny`, `adventure`, `bedtime`, `animals`, `nature`, `family`, `magic`. Needs `XAI_API_KEY` and a transcriber key (`DEEPGRAM_API_KEY`, or `GLADIA_API_KEY` for an upload). A JSON `url` is fetched by Deepgram.
 
 ### `POST /stories/transcribe`
 
@@ -304,7 +327,7 @@ assets/sfx_catalog/catalog.json  fixed kids-book sound slots
 scripts/build_sfx_catalog.py     one-shot FreeSound fill for those slots
 scripts/render_story.py          audio file -> mixed MP3
 app/services/store.py       Supabase table + Storage
-app/api/routes.py           /stories/render, /stories/process, /health
+app/api/routes.py           /stories/render, /stories/describe, /stories/process, /health
 supabase/schema.sql         recordings table and story-sfx bucket
 fixtures/deepgram_sample.json
 ```

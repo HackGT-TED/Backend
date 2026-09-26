@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ProcessStoryRequest(BaseModel):
@@ -60,6 +60,55 @@ class TranscriptSegmentOut(BaseModel):
     text: str
     start: float
     end: float
+
+
+STORY_HASHTAGS = (
+    "spooky",
+    "calm",
+    "funny",
+    "adventure",
+    "bedtime",
+    "animals",
+    "nature",
+    "family",
+    "magic",
+)
+
+
+class StoryBlurb(BaseModel):
+    """One-sentence catalog copy and a few filter tags. Not a sound-effect plan."""
+
+    description: str
+    hashtags: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _keep_a_short_card(self) -> "StoryBlurb":
+        text = " ".join(self.description.split())
+        if not text:
+            raise ValueError("description is empty")
+        if len(text) > 280:
+            text = text[:277].rstrip() + "..."
+        allowed = set(STORY_HASHTAGS)
+        tags: list[str] = []
+        for item in self.hashtags:
+            tag = str(item).strip().lower().lstrip("#")
+            if tag in allowed and tag not in tags:
+                tags.append(tag)
+            if len(tags) == 3:
+                break
+        self.description = text
+        self.hashtags = tags
+        return self
+
+
+class StoryDescription(BaseModel):
+    """Catalog metadata for one recording. No mixed audio."""
+
+    audio: str | None = None
+    duration_seconds: float
+    transcript_text: str
+    description: str
+    hashtags: list[str] = Field(default_factory=list)
 
 
 class TranscriptOut(BaseModel):

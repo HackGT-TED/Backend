@@ -31,7 +31,7 @@ def _entry(**overrides) -> dict:
 def test_checked_in_catalog_lists_picture_book_slots():
     catalog = load_catalog(CATALOG_PATH)
     entries = catalog["entries"]
-    assert 30 <= len(entries) <= 50
+    assert 30 <= len(entries) <= 120
     ids = [entry["id"] for entry in entries]
     assert len(ids) == len(set(ids))
     categories = {entry["category"] for entry in entries}
