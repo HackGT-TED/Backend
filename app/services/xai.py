@@ -31,8 +31,8 @@ Rules:
 - Return between 0 and 8 cues. Use fewer cues when the story is short. Zero cues is allowed when nothing in the story wants an effect.
 - Align start and end to the words the effect should accompany. Times are seconds from the start of the story.
 - start must be >= 0 and end must be <= duration_seconds. end must be greater than start.
-- query is a short FreeSound search (2-6 words) such as "gentle rain ambience" or "wooden door creak".
-- Prefer ambience, foley, and nature sounds suitable for young children. Do not request speech or songs with lyrics.
+- query is 2-6 words naming a concrete picture-book sound, such as "gentle rain ambience", "wooden door creak", "dog bark", "owl hoot", or "magic chime".
+- Stay inside a children's book palette: animals, weather, cozy home foley, footsteps, doors, magic chimes, and soft bedtime beats. Do not request speech, songs, or music.
 - description is one sentence explaining the cue.
 """
 

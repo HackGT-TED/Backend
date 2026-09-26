@@ -9,7 +9,7 @@ audio URL or bytes -> Deepgram POST /v1/listen
   or Deepgram JSON the client already has
   -> transcript text + word/segment timestamps
   -> xAI chat completions (structured SFX cues)
-  -> FreeSound text search + preview MP3 per cue
+  -> fixed SFX catalog match + that preview MP3 per cue
   -> silent timeline mixed under /tmp
   -> Supabase Storage object + recordings row
   -> public SFX URL
@@ -46,7 +46,7 @@ Run `supabase/schema.sql` in the Supabase SQL editor once. It creates `public.re
 uvicorn app.main:app --reload
 ```
 
-The API listens on `http://127.0.0.1:8000`. Interactive docs are at `/docs`. `GET /health` returns `{"status": "ok"}` with no keys configured. `POST /stories/process` returns **503** until Supabase, xAI, and FreeSound are configured.
+The API listens on `http://127.0.0.1:8000`. Interactive docs are at `/docs`. `GET /health` returns `{"status": "ok"}` with no keys configured. `POST /stories/process` returns **503** until Supabase and xAI are configured. Sound effects come from the checked-in catalog, so a FreeSound API key is not required on the request path.
 
 The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and on Vercel) and deletes that file after the bytes are uploaded. The recording row stores `sfx_storage_path` and the public `sfx_url`.
 
@@ -57,8 +57,10 @@ The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and 
 | `XAI_API_KEY` | to process stories | empty | Bearer token for xAI Chat Completions. |
 | `XAI_BASE_URL` | no | `https://api.x.ai/v1` | OpenAI-compatible base URL. |
 | `XAI_MODEL` | no | `grok-4.7` | Chat model id. `grok-4.7` supports structured outputs. |
-| `FREESOUND_API_KEY` | to download SFX | empty | FreeSound APIv2 token. |
-| `FREESOUND_BASE_URL` | no | `https://freesound.org` | API host. |
+| `FREESOUND_API_KEY` | to build the catalog | empty | FreeSound APIv2 token for `scripts/build_sfx_catalog.py`. Not sent on catalog-only story requests. |
+| `FREESOUND_BASE_URL` | no | `https://freesound.org` | API host for the builder and for live search. |
+| `FREESOUND_CATALOG_ONLY` | no | `true` | Match cues to `assets/sfx_catalog/catalog.json` and download that preview. `false` searches FreeSound per cue. |
+| `SFX_CATALOG_PATH` | no | repo catalog | Override the catalog JSON path. |
 | `SUPABASE_URL` | to store stories | empty | Project URL, `https://<ref>.supabase.co`. |
 | `SUPABASE_SERVICE_ROLE_KEY` | to store stories | empty | Server-side key. Bypasses RLS. Never send it to a browser. |
 | `SUPABASE_SFX_BUCKET` | no | `story-sfx` | Public Storage bucket for SFX MP3s. |
@@ -69,7 +71,7 @@ The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and 
 | `CORS_ORIGINS` | no | `*` | Comma-separated browser origins for the web and kids apps. |
 | `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for xAI and FreeSound. Raise this if `grok-4.7` reasoning runs long. |
 
-A missing `XAI_API_KEY`, `FREESOUND_API_KEY`, or Supabase key raises before any external call that needs it. Supabase is checked when the recording row is created, so a missing project URL returns **503** before xAI is called. After a row exists, a failed xAI or FreeSound call is stored as `status: "failed"` and the response includes `recording_id`.
+A missing `XAI_API_KEY` or Supabase key raises before any external call that needs it. Supabase is checked when the recording row is created, so a missing project URL returns **503** before xAI is called. After a row exists, a failed xAI or FreeSound call is stored as `status: "failed"` and the response includes `recording_id`. `FREESOUND_API_KEY` is required only to fill the catalog, or when `FREESOUND_CATALOG_ONLY=false`.
 
 `SUPABASE_ANON_KEY` is not used. Browser and kids apps should call this API and then load `sfx_url`. That URL is the public object URL for bucket `story-sfx`.
 
@@ -153,13 +155,23 @@ Example cue after alignment:
 }
 ```
 
-## FreeSound
+## FreeSound catalog
 
-- Search: `GET {FREESOUND_BASE_URL}/apiv2/search/text/?query=...&fields=id,name,previews,duration&page_size=5&sort=rating_desc`
-- Auth: `Authorization: Token $FREESOUND_API_KEY` on the API host only
-- Audio: `previews.preview-hq-mp3` (falls back to `preview-lq-mp3`)
+Story requests use a fixed pack of picture-book sounds in `assets/sfx_catalog/catalog.json` (about 30–50 slots: animals, weather, home, footsteps, doors, magic, bedtime beats). Each xAI cue is matched to the closest slot by keywords. The service downloads that slot's `preview_url` and does not call FreeSound search while `FREESOUND_CATALOG_ONLY` is true (the default).
 
-Preview MP3s are what this service mixes. Original-quality downloads need OAuth2, which v1 does not implement. HTTP 429 is retried up to three times using `Retry-After` or a short backoff. If every cue is still rate-limited, the request returns **429**. Create a token at <https://freesound.org/apiv2/apply>.
+The checked-in file lists the slots with empty FreeSound ids. Fill them once:
+
+```bash
+python scripts/build_sfx_catalog.py
+```
+
+That needs `FREESOUND_API_KEY`. It picks one sound per empty or rejected slot (rating, downloads, CC0 then Attribution, duration) and writes preview MP3s to `assets/sfx_catalog/previews/` so you can listen. Those MP3s are gitignored. Details, including how to set `approved` or `rejected` and how to swap a bad id, are in `assets/sfx_catalog/README.md`.
+
+A cue that matches a slot with no `preview_url` is skipped with a warning that names the builder. A cue that matches nothing in the catalog is skipped the same way. Pending slots that already have a preview URL are used. Rejected slots are ignored.
+
+Preview MP3s are what this service mixes. `download_url` in the catalog is FreeSound's original-file endpoint and needs OAuth2, which v1 does not implement. HTTP 429 on a preview download is retried up to three times using `Retry-After` or a short backoff. If every cue is still rate-limited, the request returns **429**. Create a token at <https://freesound.org/apiv2/apply>.
+
+Set `FREESOUND_CATALOG_ONLY=false` only if you want the old per-cue text search (`GET /apiv2/search/text/`, `Authorization: Token` on the API host, first preview-bearing hit). Catalog mode does not send the token to the preview CDN.
 
 ## Deepgram
 
@@ -200,7 +212,7 @@ The FastAPI app is one Python function. Vercel loads `app` from `app/main.py` vi
 2. Import this repo as a Vercel project. The Python runtime picks up FastAPI from `pyproject.toml`.
 3. In the Vercel project settings, set the same variables as `.env.example`:
    - `XAI_API_KEY`, `XAI_BASE_URL`, `XAI_MODEL`
-   - `FREESOUND_API_KEY`, `FREESOUND_BASE_URL`
+   - `FREESOUND_API_KEY` and `FREESOUND_BASE_URL` if you are not shipping a filled catalog, plus `FREESOUND_CATALOG_ONLY` (default true) and optional `SFX_CATALOG_PATH`
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SFX_BUCKET`
    - `DEEPGRAM_API_KEY`, `DEEPGRAM_BASE_URL`, `DEEPGRAM_MODEL`, `DEEPGRAM_LANGUAGE` when audio is transcribed on the server
    - `CORS_ORIGINS` for the web and kids app origins
@@ -227,7 +239,10 @@ app/config.py               pydantic-settings
 app/schemas/deepgram.py     Deepgram JSON -> transcript
 app/schemas/sfx.py          cue schema and alignment
 app/services/xai.py        xAI Chat Completions client
-app/services/freesound.py   search + preview download
+app/services/freesound.py   catalog match + preview download
+app/services/sfx_catalog.py catalog load, match, and builder ranking
+assets/sfx_catalog/catalog.json  fixed kids-book sound slots
+scripts/build_sfx_catalog.py     one-shot FreeSound fill for those slots
 app/services/mixer.py       silence + overlays -> MP3 bytes
 app/services/pipeline.py    wires planning, download, and mix
 app/services/deepgram.py   prerecorded POST /v1/listen

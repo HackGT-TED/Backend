@@ -27,6 +27,10 @@ class Settings(BaseSettings):
 
     freesound_api_key: str = ""
     freesound_base_url: str = "https://freesound.org"
+    # Story cues resolve to assets/sfx_catalog/catalog.json. Live text search
+    # runs only when this is false.
+    freesound_catalog_only: bool = True
+    sfx_catalog_path: str = ""
 
     # Server-side only. The service role bypasses RLS. The anon key is not read.
     supabase_url: str = ""

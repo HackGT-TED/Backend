@@ -1,9 +1,14 @@
-"""FreeSound APIv2 client.
+"""FreeSound preview downloads for story cues.
 
-Text search: ``GET {FREESOUND_BASE_URL}/apiv2/search/text/``
-Auth: ``Authorization: Token $FREESOUND_API_KEY`` (the token is not sent to the
-preview CDN). Preview MP3 URLs come back on each result as
-``previews.preview-hq-mp3`` and do not need OAuth2.
+Catalog mode (the default) matches the cue to one row in
+``assets/sfx_catalog/catalog.json`` and downloads that row's preview MP3.
+It does not call FreeSound text search.
+
+Live search remains available when ``FREESOUND_CATALOG_ONLY=false``:
+
+``GET {FREESOUND_BASE_URL}/apiv2/search/text/``
+Auth: ``Authorization: Token $FREESOUND_API_KEY`` on the API host only.
+Preview MP3 URLs (``previews.preview-hq-mp3``) do not need the token.
 
 https://freesound.org/docs/api/resources_apiv2.html
 https://freesound.org/docs/api/authentication.html
@@ -12,11 +17,13 @@ https://freesound.org/docs/api/authentication.html
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 import httpx
 
 from app.config import Settings
+from app.services.sfx_catalog import CATALOG_PATH, load_catalog, match_entry
 
 
 class FreeSoundError(RuntimeError):
@@ -37,7 +44,10 @@ class FreeSoundRateLimitError(FreeSoundError):
 
 class FreeSoundClient(Protocol):
     def download_for_query(self, query: str) -> "DownloadedClip":
-        """Search for ``query`` and return the first preview clip."""
+        """Return the catalog preview that matches ``query``.
+
+        When catalog-only mode is off, search FreeSound instead.
+        """
 
 
 @dataclass(frozen=True)
@@ -51,10 +61,12 @@ class DownloadedClip:
 
 
 class HttpFreeSoundClient:
-    """Search FreeSound and download a preview MP3.
+    """Download a preview MP3 for one story cue.
 
-    HTTP 429 is retried with ``Retry-After`` (or a short backoff). Other errors
-    raise ``FreeSoundError`` so the pipeline can skip that cue.
+    In catalog-only mode the cue is matched to ``catalog.json`` and that
+    preview URL is fetched. No FreeSound search request is made, and
+    ``FREESOUND_API_KEY`` is not required. HTTP 429 on the preview download
+    is retried with ``Retry-After`` (or a short backoff).
     """
 
     def __init__(
@@ -67,6 +79,10 @@ class HttpFreeSoundClient:
         backoff_seconds: float = 0.5,
     ) -> None:
         self._api_key = settings.freesound_api_key.strip()
+        self._catalog_only = settings.freesound_catalog_only
+        catalog_path = settings.sfx_catalog_path.strip()
+        self._catalog_path = Path(catalog_path) if catalog_path else CATALOG_PATH
+        self._catalog: dict | None = None
         self._search_url = settings.freesound_base_url.rstrip("/") + "/apiv2/search/text/"
         self._owns_http = http is None
         self._http = http or httpx.Client(timeout=settings.http_timeout_seconds)
@@ -79,25 +95,70 @@ class HttpFreeSoundClient:
             self._http.close()
 
     def download_for_query(self, query: str) -> DownloadedClip:
+        cleaned = _clean_query(query)
+        if self._catalog_only:
+            return self._download_catalog_clip(cleaned)
         if not self._api_key:
             raise FreeSoundNotConfiguredError(
                 "FREESOUND_API_KEY is not set. Add it to .env (see .env.example). "
                 "Create a token at https://freesound.org/apiv2/apply. No request was sent."
             )
-        cleaned = _clean_query(query)
         result = self._search(cleaned)
         preview_url = _preview_url(result)
         if preview_url is None:
             sound_id = result.get("id")
             raise FreeSoundError(f"FreeSound sound {sound_id} has no MP3 preview")
+        return self._clip_from_download(cleaned, result, preview_url)
+
+    def _download_catalog_clip(self, query: str) -> DownloadedClip:
+        entry = match_entry(self._entries(), query)
+        if entry is None:
+            raise FreeSoundError(
+                f"No catalog sound matches {query!r}. "
+                "Catalog-only mode does not search FreeSound."
+            )
+        preview_url = entry.get("preview_url")
+        if not isinstance(preview_url, str) or not preview_url.startswith("http"):
+            slot_id = entry.get("id")
+            raise FreeSoundError(
+                f"Catalog slot {slot_id!r} matches {query!r} but has no preview_url. "
+                "Run `python scripts/build_sfx_catalog.py` with FREESOUND_API_KEY, "
+                "listen to assets/sfx_catalog/previews/, and set status to approved "
+                "or rejected in assets/sfx_catalog/catalog.json."
+            )
+        sound_id = entry.get("freesound_id") or 0
+        result = {
+            "id": sound_id,
+            "name": entry.get("label") or query,
+            "duration": entry.get("duration"),
+        }
+        return self._clip_from_download(query, result, preview_url)
+
+    def _entries(self) -> list[dict]:
+        if self._catalog is None:
+            try:
+                self._catalog = load_catalog(self._catalog_path)
+            except FileNotFoundError as exc:
+                raise FreeSoundNotConfiguredError(
+                    f"SFX catalog not found at {self._catalog_path}. "
+                    "Restore assets/sfx_catalog/catalog.json."
+                ) from exc
+            except (OSError, ValueError) as exc:
+                raise FreeSoundError(f"SFX catalog at {self._catalog_path} could not be read: {exc}") from exc
+        entries = self._catalog.get("entries")
+        if not isinstance(entries, list):
+            raise FreeSoundError(f"SFX catalog at {self._catalog_path} has no entries list")
+        return entries
+
+    def _clip_from_download(self, query: str, result: dict, preview_url: str) -> DownloadedClip:
         audio = self._download(preview_url)
         if not audio:
-            raise FreeSoundError(f"FreeSound preview for {cleaned!r} was empty")
+            raise FreeSoundError(f"FreeSound preview for {query!r} was empty")
         duration = result.get("duration")
         return DownloadedClip(
             sound_id=int(result.get("id") or 0),
-            name=str(result.get("name") or cleaned),
-            query=cleaned,
+            name=str(result.get("name") or query),
+            query=query,
             preview_url=preview_url,
             audio_bytes=audio,
             duration_seconds=float(duration) if isinstance(duration, (int, float)) else None,
