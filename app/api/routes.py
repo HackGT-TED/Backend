@@ -284,14 +284,24 @@ def _raise_pipeline_error(status_code: int, exc: Exception, recording_id: str) -
 
 def _cue_payload(cue: SfxCue) -> dict:
     start_ms, end_ms = cue.window_ms()
-    return {
+    payload = {
         "query": cue.query,
+        "catalog_id": cue.catalog_id,
         "description": cue.description,
+        "reason": cue.reason,
+        "kind": cue.kind or "oneshot",
         "start": start_ms / 1000,
         "end": end_ms / 1000,
         "start_ms": start_ms,
         "end_ms": end_ms,
     }
+    if cue.gain_db is not None:
+        payload["gain_db"] = cue.gain_db
+    if cue.end_at_scene_change:
+        payload["end_at_scene_change"] = True
+    if cue.until_seconds is not None:
+        payload["until_seconds"] = cue.until_seconds
+    return payload
 
 
 def _summary(record: RecordingRecord) -> RecordingSummary:

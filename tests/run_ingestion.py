@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Turn fixtures/deepgram_sample.json into a timestamped SFX MP3.
 
-This is the real story pipeline. Python reads the Deepgram JSON. xAI only
-chooses which catalog ids match the story and when. Python then downloads
-those FreeSound previews from assets/sfx_catalog/catalog.json and places the
-clips on a silent timeline the length of the story.
+This is the local story smoke path. Python reads the Deepgram JSON and asks
+xAI with the same immersive prompt the API uses (scene beds, pause gaps, and
+layered cues). Python then downloads those FreeSound previews from
+assets/sfx_catalog/catalog.json and overlays every cue, including overlaps,
+on a silent timeline the length of the story.
 
     python tests/run_ingestion.py
     python tests/run_ingestion.py --output out/story_sfx.mp3
@@ -88,6 +89,11 @@ def main(argv: list[str] | None = None) -> int:
                         "catalog_id": cue.catalog_id,
                         "query": cue.query,
                         "description": cue.description,
+                        "reason": cue.reason,
+                        "kind": cue.kind,
+                        "gain_db": cue.gain_db,
+                        "end_at_scene_change": cue.end_at_scene_change,
+                        "until_seconds": cue.until_seconds,
                         "start": cue.start,
                         "end": cue.end,
                         "start_ms": cue.start_ms,
@@ -104,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"story duration: {output.duration_seconds:.2f}s")
     print(f"cues: {len(output.cues)}")
     for cue in output.cues:
-        print(f"  {cue.start:.2f}-{cue.end:.2f}s  {cue.catalog_id}")
+        print(f"  {cue.start:.2f}-{cue.end:.2f}s  {cue.kind}  {cue.catalog_id}")
     if output.warnings:
         print("warnings:")
         for warning in output.warnings:

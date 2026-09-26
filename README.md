@@ -8,9 +8,9 @@ Audio can be transcribed here with Deepgram, or the client can send Deepgram JSO
 audio URL or bytes -> Deepgram POST /v1/listen
   or Deepgram JSON the client already has
   -> transcript text + word/segment timestamps
-  -> xAI picks catalog ids that match the story (similarity only)
+  -> xAI plans layered cues (oneshots, scene beds, optional pause fills)
   -> Python downloads only those FreeSound previews
-  -> Python places the clips on a silent timeline under /tmp
+  -> Python overlays every cue, including overlaps, on a silent timeline under /tmp
   -> Supabase Storage object + recordings row
   -> public SFX URL
 ```
@@ -136,13 +136,14 @@ Cue planning uses xAI's [OpenAI-compatible Chat Completions API](https://docs.x.
 - Default URL: `https://api.x.ai/v1/chat/completions`
 - Default model: `grok-4.7`, the chat model on the [Grok 4.7 model page](https://docs.x.ai/docs/models/grok-4.7). That page lists structured outputs as supported. Override with `XAI_MODEL`.
 - Auth header: `Authorization: Bearer $XAI_API_KEY`
-- Structured cues: `response_format.type = "json_schema"` with the `sfx_plan` schema (`catalog_id`, `description`, `start`, `end` in seconds). `catalog_id` must be one of the ids in `assets/sfx_catalog/catalog.json`. The client still accepts fenced JSON or a JSON object wrapped in prose if the message is not bare JSON.
+- Structured cues: `response_format.type = "json_schema"` with the `sfx_plan` schema (`catalog_id`, optional `query`, `reason`, `start`, `end`, `kind`, `gain_db`, `end_at_scene_change`, `until_seconds`). `kind` is `oneshot`, `ambient`, or `fill_pause`. `catalog_id` must be one of the ids in `assets/sfx_catalog/catalog.json`. The client still accepts fenced JSON or a JSON object wrapped in prose if the message is not bare JSON.
+- The user message is a compact transcript: text, word timings, segments, pauses of at least 600 ms, and catalog ids with labels. It is not the raw Deepgram document.
 - A missing key fails in-process with `XaiNotConfiguredError` and does not open a socket.
 - `grok-4.7` reasons by default. The default HTTP timeout is 60 seconds; set `HTTP_TIMEOUT_SECONDS` higher if planning calls time out.
 
-xAI only chooses which catalog sounds are similar to the story and when they play. It does not download audio. Python drops any id that is not in the catalog, fetches those preview files, and mixes them.
+xAI chooses which catalog sounds fit the story, how long they should last, and which ones overlap. It does not download audio. Python drops any id that is not in the catalog, fetches those preview files, and mixes them.
 
-The planner is asked for at most twelve cues. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped.
+The planner is asked for at most twelve cues. Cue windows are then clamped to the story duration. Windows shorter than 50ms are dropped. Overlapping windows are all kept.
 
 Example cue after alignment:
 
@@ -150,13 +151,24 @@ Example cue after alignment:
 {
   "query": "rain",
   "catalog_id": "rain",
-  "description": "Rain under the first sentence.",
+  "description": "Rain until the cottage scene moves on.",
+  "reason": "Rain until the cottage scene moves on.",
+  "kind": "ambient",
+  "gain_db": -8,
   "start": 0.75,
-  "end": 4.21,
+  "end": 14.35,
   "start_ms": 750,
-  "end_ms": 4210
+  "end_ms": 14350
 }
 ```
+
+## Immersive mixing
+
+The mix is a silent bed the length of the story, with every cue overlaid at its own start. Two sounds at the same timestamp (rain and a door creak) are both in the file.
+
+- **Scene beds.** `kind: "ambient"` should cover the rainy or windy span, not a single word. The model sets `end` to the moment the context changes, or sets `until_seconds` to that same clock and leaves `end` null. `end_at_scene_change: true` with both of those null holds the bed through the rest of the story. A short preview is looped so the bed lasts the whole window.
+- **Pauses.** Gaps of at least 600 ms between words, and trailing silence of that length, are sent as `pauses`. `kind: "fill_pause"` may cover a gap when the scene still wants sound. A pause that should stay quiet gets no cue.
+- **Layers and gain.** One-shots are trimmed to their window and are not looped. Ambient and pause-fill clips are ducked by 6 dB during the stretch where a one-shot is actually sounding, so the event reads over the bed. Optional `gain_db` sets the clip's level for its whole window and is clamped to the range -24 to 6. Leave it null for unity gain. A bed that should sit under the narration the whole time is usually -6 to -12, and the 6 dB duck is applied on top of that while a one-shot overlaps.
 
 ## FreeSound catalog
 
@@ -184,7 +196,7 @@ Set `FREESOUND_CATALOG_ONLY=false` only if you want the old per-cue text search 
 python tests/run_ingestion.py
 ```
 
-That writes `out/story_sfx.mp3` (gitignored) and `out/story_sfx.json` with the cue timestamps. It needs `XAI_API_KEY`. Catalog slots need a `preview_url`; fill those with `python scripts/build_sfx_catalog.py` if they are still empty. The same JSON is what `POST /stories/process` accepts under `deepgram`.
+That writes `out/story_sfx.mp3` (gitignored) and `out/story_sfx.json` with the cue timestamps, kind, and gain. It needs `XAI_API_KEY`. It uses the same planner prompt as `POST /stories/process`. Catalog slots need a `preview_url`; fill those with `python scripts/build_sfx_catalog.py` if they are still empty. The same JSON is what `POST /stories/process` accepts under `deepgram`.
 
 ## Deepgram
 
@@ -215,7 +227,7 @@ A smaller document also works:
 }
 ```
 
-Story length is `metadata.duration` when that is longer than the last word, so trailing silence stays in the SFX track. Each clip is trimmed to its cue window so a long preview cannot spill into the next sentence. The timeline is padded or trimmed to that duration before ffmpeg encodes the MP3. Encoder framing can add a few dozen milliseconds around that exact length.
+Story length is `metadata.duration` when that is longer than the last word, so trailing silence stays in the SFX track. Each clip is held to its cue window so a long preview cannot spill past that cue. Ambient and pause-fill clips loop when the preview is shorter than the window. The timeline is padded or trimmed to that duration before ffmpeg encodes the MP3. Encoder framing can add a few dozen milliseconds around that exact length.
 
 ## Deploy on Vercel
 
@@ -242,7 +254,7 @@ External calls are mocked. No API keys and no network:
 pytest
 ```
 
-`tests/test_mixer.py` checks timestamp alignment directly: a clip longer than its cue is audible only inside that window, and the timeline length stays equal to the story.
+`tests/test_mixer.py` checks timestamp alignment directly: a clip longer than its cue is audible only inside that window, overlapping cues are both mixed, an ambient bed loops for its whole window, and the timeline length stays equal to the story.
 
 ## Layout
 
