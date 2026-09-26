@@ -75,7 +75,15 @@ The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and 
 
 A missing `XAI_API_KEY` or Supabase key raises before any external call that needs it. Supabase is checked when the recording row is created, so a missing project URL returns **503** before xAI is called. The catalog read is separate: with no Supabase keys, or when the active row is missing, the API uses `assets/sfx_catalog/catalog.json`. After a row exists, a failed xAI or FreeSound call is stored as `status: "failed"` and the response includes `recording_id`. `FREESOUND_API_KEY` is required only to fill the catalog, or when `FREESOUND_CATALOG_ONLY=false`.
 
-`SUPABASE_ANON_KEY` is not used. Browser and kids apps should call this API and then load `sfx_url`. That URL is the public object URL for bucket `story-sfx`. This Supabase project is the SFX catalog and those mix files. It is not the marketplace database.
+`SUPABASE_ANON_KEY` is not used. Browser and kids apps should call this API and then load `sfx_url`. That URL is the public object URL for bucket `story-sfx`.
+
+## Backend and frontend Supabase
+
+This FastAPI backend and the Next.js app do not share a client or a set of env vars.
+
+- This service uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to read and write the `sfx_catalog` JSON, and to upload mixed MP3s to the `story-sfx` bucket. The service role key stays on the server.
+- The Next.js frontend (`ted-web`) uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` through `@supabase/ssr`. That client work lands in a separate ted-web pull request. It does not belong in this Python repo.
+- Marketplace and social data are frontend database scope. Do not add those tables here.
 
 ## API
 
