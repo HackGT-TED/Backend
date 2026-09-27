@@ -241,6 +241,7 @@ def apply_sound(entry: dict, sound: dict, *, preview_path: str | None = None) ->
     username = sound.get("username")
     entry["username"] = str(username) if username else None
     entry["status"] = "pending"
+    entry.pop("gain_db", None)
     if preview_path is not None:
         entry["preview_path"] = preview_path
 

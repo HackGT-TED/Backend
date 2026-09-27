@@ -16,11 +16,19 @@ python scripts/build_sfx_catalog.py
 
 The script searches FreeSound **once per empty or rejected slot**, keeps a single sound (rating, downloads, CC0 then Attribution, duration), and writes it back into `catalog.json` with `"status": "pending"`. It also downloads preview MP3s into `previews/`.
 
+It then measures every non-rejected preview and writes `gain_db` on that entry, plus `loudness_target_dbfs` on the document. That gain is what the mixer applies so the clips share one volume. FreeSound's file is left as published.
+
+```bash
+python scripts/build_sfx_catalog.py --push
+```
+
+`--push` writes the file and upserts it to `public.sfx_catalog`. Run that after the gains look right so production uses the same JSON. A FreeSound API key is required only when a slot still needs a search. Measuring previews and pushing do not.
+
 Useful flags:
 
 ```bash
 python scripts/build_sfx_catalog.py --refresh      # re-pick pending slots; approved slots stay
-python scripts/build_sfx_catalog.py --no-download  # update JSON only
+python scripts/build_sfx_catalog.py --no-download  # measure gain_db without writing preview MP3s
 ```
 
 Approved rows are never replaced. A pending row that already has a FreeSound id is kept unless you pass `--refresh`. Rejected and empty rows get a new candidate. Preview files that are already on disk are not downloaded again.

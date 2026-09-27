@@ -230,7 +230,7 @@ To copy the checked-in file into Supabase after you fill it:
 python scripts/build_sfx_catalog.py --push
 ```
 
-`--push` still writes `catalog.json`, then upserts `public.sfx_catalog` and increments `version`. The same helper is `save_active_catalog` / `push_checked_in_catalog` in `app/services/catalog_store.py`.
+`--push` still writes `catalog.json`, then upserts `public.sfx_catalog` and increments `version`. That payload includes `loudness_target_dbfs` and a `gain_db` on each filled slot. The same helper is `save_active_catalog` / `push_checked_in_catalog` in `app/services/catalog_store.py`. Production reads this row, so a push is what makes the shared clip volume live.
 
 The checked-in file lists the slots with empty FreeSound ids. Fill them once:
 
@@ -242,7 +242,7 @@ That needs `FREESOUND_API_KEY`. It picks one sound per empty or rejected slot (r
 
 A cue that matches a slot with no `preview_url` is skipped with a warning that names the builder. A cue that matches nothing in the catalog is skipped the same way. Pending slots that already have a preview URL are used. Rejected slots are ignored.
 
-Preview MP3s are what this service mixes. `download_url` in the catalog is FreeSound's original-file endpoint and needs OAuth2, which v1 does not implement. HTTP 429 on a preview download is retried up to three times using `Retry-After` or a short backoff. If every cue is still rate-limited, the request returns **429**. Create a token at <https://freesound.org/apiv2/apply>.
+Preview MP3s are what this service mixes. They are not re-encoded. The builder measures each preview and stores `gain_db` on that catalog entry (the offset that puts its loudest 200 ms at `loudness_target_dbfs`, -20 dBFS). The mixer applies that gain before the clip is ducked under the narration, so a loud bark and a quiet rain bed start from the same level. A slot with no `gain_db` yet is measured from the downloaded bytes on that request. `download_url` in the catalog is FreeSound's original-file endpoint and needs OAuth2, which v1 does not implement. HTTP 429 on a preview download is retried up to three times using `Retry-After` or a short backoff. If every cue is still rate-limited, the request returns **429**. Create a token at <https://freesound.org/apiv2/apply>.
 
 Set `FREESOUND_CATALOG_ONLY=false` only if you want the old per-cue text search (`GET /apiv2/search/text/`, `Authorization: Token` on the API host, first preview-bearing hit). Catalog mode does not send the token to the preview CDN.
 

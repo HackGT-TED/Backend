@@ -64,6 +64,8 @@ class TimedClip:
     end_ms: int
     audio_bytes: bytes
     query: str = ""
+    # Catalog offset that puts this preview on the shared loudness. 0 leaves the file as fetched.
+    gain_db: float = 0.0
 
 
 def mix_sfx_bytes(clips: list[TimedClip], duration_ms: int) -> bytes:
@@ -225,7 +227,10 @@ def _prepare_clip(
     window = end_ms - start_ms
     if window < _MIN_WINDOW_MS or start_ms >= duration_ms:
         return None
-    audio = _match_format(load_clip(clip.audio_bytes), timeline)[:window]
+    audio = _match_format(load_clip(clip.audio_bytes), timeline)
+    if clip.gain_db:
+        audio = audio.apply_gain(clip.gain_db)
+    audio = audio[:window]
     if len(audio) <= 0:
         return None
     if len(audio) > _FADE_MS * 2:

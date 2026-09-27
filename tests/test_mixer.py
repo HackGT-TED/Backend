@@ -154,6 +154,27 @@ def test_an_already_quiet_effect_is_not_boosted():
     assert effect_gain_db(voice, effect) == 0
 
 
+def test_catalog_gain_puts_a_quiet_clip_at_the_same_level_as_a_loud_one():
+    from app.services.loudness import level_match_gain_db
+
+    loud = sine_wav_bytes(1_000, frequency=440, amplitude=0.8)
+    quiet = sine_wav_bytes(1_000, frequency=880, amplitude=0.05)
+    loud_gain = level_match_gain_db(load_clip(loud))
+    quiet_gain = level_match_gain_db(load_clip(quiet))
+    timeline = place_clips(
+        [
+            TimedClip(start_ms=0, end_ms=800, audio_bytes=loud, query="loud", gain_db=loud_gain),
+            TimedClip(start_ms=2_000, end_ms=2_800, audio_bytes=quiet, query="quiet", gain_db=quiet_gain),
+        ],
+        4_000,
+    )
+    loud_rms = _rms(timeline, 200, 600)
+    quiet_rms = _rms(timeline, 2_200, 2_600)
+    assert loud_rms > 0 and quiet_rms > 0
+    ratio = loud_rms / quiet_rms
+    assert 0.8 <= ratio <= 1.25
+
+
 def test_empty_cue_list_is_silence_of_the_story_duration():
     timeline = place_clips([], 4_000)
     assert len(timeline) == 4_000
