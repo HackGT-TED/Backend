@@ -75,7 +75,7 @@ class HttpImagineClient:
                     "n": 1,
                     "aspect_ratio": "1:1",
                     "resolution": "1k",
-                    "quality": "medium",
+                    "quality": "low",
                     "response_format": "url",
                 },
             )

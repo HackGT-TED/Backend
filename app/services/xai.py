@@ -229,6 +229,7 @@ class HttpXaiClient:
                 },
             ],
             PICTURE_RESPONSE_FORMAT,
+            reasoning_effort="low",
         )
         try:
             return _parse_picture(text)
@@ -250,12 +251,20 @@ class HttpXaiClient:
         except ValueError as exc:
             raise XaiError(f"xAI cue JSON did not match the SFX schema: {exc}") from exc
 
-    def _post_completion(self, messages: list[dict], response_format: dict) -> str:
+    def _post_completion(
+        self,
+        messages: list[dict],
+        response_format: dict,
+        *,
+        reasoning_effort: str | None = None,
+    ) -> str:
         payload = {
             "model": self._model,
             "messages": messages,
             "response_format": response_format,
         }
+        if reasoning_effort:
+            payload["reasoning_effort"] = reasoning_effort
         try:
             response = self._http.post(
                 self._url,

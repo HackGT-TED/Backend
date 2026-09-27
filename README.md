@@ -142,7 +142,7 @@ curl -sS -X POST http://127.0.0.1:8000/stories/describe \
 
 ### `POST /stories/cover`
 
-Same audio input as `/stories/describe`. After the transcript, one xAI call writes the description, hashtags, and a single picture moment. Grok Imagine (`grok-imagine-image-2.0`) then draws a square picture-book cover from that card. The style instructions are fixed: gouache and colored pencil, playful, child-friendly, and not photoreal. Does not plan cues or mix audio.
+Same audio input as `/stories/describe`. After the transcript, one xAI call writes the description, hashtags, and a single picture moment. That call uses `reasoning_effort=low` so it does not sit in the long cue-planning think. Grok Imagine (`grok-imagine-image-2.0`) then draws a square picture-book cover at `quality=low` and `1k`. The style instructions stay fixed: gouache and colored pencil, playful, child-friendly, and not photoreal. Does not plan cues or mix audio.
 
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/stories/cover \

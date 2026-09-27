@@ -212,6 +212,7 @@ def test_picture_story_posts_a_scene_and_keeps_known_tags():
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         assert body["response_format"]["json_schema"]["name"] == "story_picture"
+        assert body["reasoning_effort"] == "low"
         system = body["messages"][0]["content"]
         assert "sound effects" in system
         assert "scene" in system

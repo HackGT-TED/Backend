@@ -40,7 +40,7 @@ def test_generate_posts_imagine_and_returns_the_url():
         assert body["model"] == "grok-imagine-image-2.0"
         assert body["n"] == 1
         assert body["aspect_ratio"] == "1:1"
-        assert body["quality"] == "medium"
+        assert body["quality"] == "low"
         assert body["response_format"] == "url"
         assert "Picture-book cover" in body["prompt"]
         return httpx.Response(200, json={"data": [{"url": "https://im.example/cover.jpg"}]})
