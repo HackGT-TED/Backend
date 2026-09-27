@@ -18,8 +18,10 @@ rejected slots get a new candidate, marked ``pending`` so you can listen
 before trusting them.
 
 Every non-rejected slot with a preview is measured, and ``gain_db`` is written
-onto that entry so the mixer can play the clips at one loudness. ``--push``
-stores that same JSON, including ``gain_db``, as the active Supabase catalog.
+onto that entry so the clips share one integrated loudness. The preview MP3
+written next to the catalog is that leveled file. ``sfx_level_db`` on the
+document is the extra offset applied only when a story is mixed. ``--push``
+stores that same JSON as the active Supabase catalog.
 """
 
 from __future__ import annotations
@@ -37,7 +39,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.services.loudness import TARGET_DBFS, record_clip_gain  # noqa: E402
+from app.services.loudness import (  # noqa: E402
+    DEFAULT_SFX_LEVEL_DB,
+    TARGET_LUFS,
+    leveled_preview_bytes,
+    record_clip_gain,
+)
 from app.services.sfx_catalog import (  # noqa: E402
     CATALOG_PATH,
     apply_sound,
@@ -88,7 +95,8 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    catalog["loudness_target_dbfs"] = TARGET_DBFS
+    catalog["loudness_target_lufs"] = TARGET_LUFS
+    catalog.setdefault("sfx_level_db", DEFAULT_SFX_LEVEL_DB)
     catalog = _with_loudness_target(catalog)
     base_url = os.environ.get("FREESOUND_BASE_URL", "https://freesound.org").rstrip("/")
     search_url = base_url + "/apiv2/search/text/"
@@ -140,8 +148,10 @@ def main(argv: list[str] | None = None) -> int:
             if gain is None:
                 print(f"{slot_id}: preview could not be measured", file=sys.stderr)
                 failures += 1
-            else:
-                print(f"{slot_id}: gain_db {gain:+.1f}")
+                continue
+            print(f"{slot_id}: gain_db {gain:+.1f}")
+            if download:
+                _write_leveled_preview(entry, previews_dir, audio, gain)
 
     catalog_path.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {catalog_path}")
@@ -151,18 +161,21 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _with_loudness_target(catalog: dict) -> dict:
-    """Keep ``loudness_target_dbfs`` with the other document fields."""
+    """Keep the loudness fields with the other document metadata."""
 
-    target = catalog.get("loudness_target_dbfs", TARGET_DBFS)
+    target = catalog.get("loudness_target_lufs", catalog.get("loudness_target_dbfs", TARGET_LUFS))
+    level = catalog.get("sfx_level_db", DEFAULT_SFX_LEVEL_DB)
     ordered: dict = {}
     for key, value in catalog.items():
-        if key == "loudness_target_dbfs":
+        if key in {"loudness_target_lufs", "loudness_target_dbfs", "sfx_level_db"}:
             continue
         ordered[key] = value
         if key == "notes":
-            ordered["loudness_target_dbfs"] = target
-    if "loudness_target_dbfs" not in ordered:
-        ordered["loudness_target_dbfs"] = target
+            ordered["loudness_target_lufs"] = target
+            ordered["sfx_level_db"] = level
+    if "loudness_target_lufs" not in ordered:
+        ordered["loudness_target_lufs"] = target
+        ordered["sfx_level_db"] = level
     return ordered
 
 
@@ -227,30 +240,36 @@ def _preview_bytes(
     save: bool,
     force: bool,
 ) -> bytes | None:
-    """Return preview bytes, from disk when a fresh copy is already there.
+    """Return the original preview bytes.
 
-    ``save`` writes ``previews/<id>.mp3``. ``force`` ignores a file left over
-    from an older FreeSound id.
+    The raw file is cached under ``previews/source/``. The file in ``previews/``
+    is written later with the match gain applied, so a second run must not
+    measure that copy.
     """
 
     slot_id = str(entry.get("id") or "sound")
-    destination = previews_dir / f"{slot_id}.mp3"
-    rel = _preview_rel(previews_dir, slot_id)
+    source = previews_dir / "source" / f"{slot_id}.mp3"
     url = entry.get("preview_url")
     if not isinstance(url, str) or not url.startswith("http"):
         return None
-    if destination.is_file() and destination.stat().st_size > 0 and not force:
-        entry["preview_path"] = rel
-        print(f"{slot_id}: preview already on disk")
-        return destination.read_bytes()
+    if source.is_file() and source.stat().st_size > 0 and not force:
+        print(f"{slot_id}: source preview already on disk")
+        return source.read_bytes()
     # CDN previews are public. Do not send the API token.
     response = _request(http, "GET", url, headers={"User-Agent": "hackgt-ted-backend/catalog"})
     if save:
-        previews_dir.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(response.content)
-        entry["preview_path"] = rel
-        print(f"{slot_id}: wrote {rel}")
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(response.content)
     return response.content
+
+
+def _write_leveled_preview(entry: dict, previews_dir: Path, raw: bytes, gain_db: float) -> None:
+    slot_id = str(entry.get("id") or "sound")
+    destination = previews_dir / f"{slot_id}.mp3"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(leveled_preview_bytes(raw, gain_db))
+    entry["preview_path"] = _preview_rel(previews_dir, slot_id)
+    print(f"{slot_id}: wrote {entry['preview_path']}")
 
 
 def _preview_rel(previews_dir: Path, slot_id: str) -> str:

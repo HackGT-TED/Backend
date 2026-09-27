@@ -5,8 +5,8 @@ Python sends the file to Deepgram (or Gladia when only GLADIA_API_KEY is set).
 xAI only chooses which catalog ids match the words and when they play. Python
 downloads those FreeSound previews and lays them on the recording at those times.
 Each preview is shifted by the ``gain_db`` stored on its catalog entry so the
-clips share one loudness, then ducked under the voice. The output length is
-the recording. A second xAI call, separate from cue
+clips share one loudness, then by ``sfx_level_db`` (one offset for every
+effect). The output length is the recording. A second xAI call, separate from cue
 planning, writes a one-sentence description and a few hashtags into the JSON
 sidecar next to the cue list.
 
@@ -116,7 +116,8 @@ def main(argv: list[str] | None = None) -> int:
                 "description": blurb.description,
                 "hashtags": blurb.hashtags,
                 "warnings": output.warnings,
-                "loudness_target_dbfs": catalog.get("loudness_target_dbfs"),
+                "loudness_target_lufs": catalog.get("loudness_target_lufs"),
+                "sfx_level_db": catalog.get("sfx_level_db", 0),
                 "cues": [
                     {
                         "catalog_id": cue.catalog_id,

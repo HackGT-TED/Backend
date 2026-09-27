@@ -111,6 +111,7 @@ def test_effects_start_late_and_stay_under_the_narration():
         end_ms=2_000,
         audio_bytes=sine_wav_bytes(3_000, frequency=1400, amplitude=0.95),
         query="dog-bark",
+        gain_db=-18,
     )
 
     mixed = overlay_on_story(story_bytes, [effect])

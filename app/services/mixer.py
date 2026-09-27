@@ -5,9 +5,9 @@ and returns the bytes. Callers upload those bytes; nothing is kept on local disk
 
 ``mix_sfx_bytes`` builds silence the length of the story and overlays each clip.
 ``mix_on_story_bytes`` overlays the same clips on the uploaded recording. Each
-effect is delayed slightly past the word start, then leveled so it sits under
-the narration in that window. A clip cannot spill past the delayed cue end or
-the story end.
+effect is delayed slightly past the word start and played at its catalog gain
+plus the shared ``sfx_level_db``. A clip cannot spill past the delayed cue end
+or the story end.
 
 Export uses pydub, which shells out to ffmpeg (libmp3lame). WAV bytes are
 decoded in-process. MP3 and OGG previews are decoded with ffmpeg. A system
@@ -140,11 +140,16 @@ def place_clips(clips: list[TimedClip], duration_ms: int) -> AudioSegment:
 
 
 def overlay_on_story(story_bytes: bytes, clips: list[TimedClip]) -> AudioSegment:
-    """Place leveled clips on the decoded recording. Length matches that recording."""
+    """Place clips on the decoded recording. Length matches that recording.
+
+    Each clip already carries the catalog match gain plus ``sfx_level_db``.
+    Every effect uses that same offset, so one number turns the whole set up
+    or down.
+    """
 
     story = load_clip(story_bytes)
     duration_ms = max(len(story), 1)
-    return _overlay_clips(story, clips, duration_ms, level_against=story)
+    return _overlay_clips(story, clips, duration_ms)
 
 
 def effect_gain_db(narration: AudioSegment, effect: AudioSegment) -> float:
@@ -172,16 +177,12 @@ def _overlay_clips(
     timeline: AudioSegment,
     clips: list[TimedClip],
     duration_ms: int,
-    level_against: AudioSegment | None = None,
 ) -> AudioSegment:
     for clip in clips:
         placed = _prepare_clip(clip, timeline, duration_ms)
         if placed is None:
             continue
         audio, start_ms = placed
-        if level_against is not None:
-            narration = level_against[start_ms : start_ms + len(audio)]
-            audio = audio.apply_gain(effect_gain_db(narration, audio))
         timeline = timeline.overlay(audio, position=start_ms)
     return _fit_length(timeline, duration_ms)
 

@@ -14,7 +14,7 @@ from app.services.freesound import (
     FreeSoundNotConfiguredError,
     FreeSoundRateLimitError,
 )
-from app.services.loudness import gain_for_entry
+from app.services.loudness import gain_for_entry, sfx_level_db
 from app.services.mixer import (
     AudioMixError,
     TimedClip,
@@ -122,13 +122,15 @@ def _plan_and_mix(
             logger.warning("Undecodable clip for %s: %s", cue.query, exc)
             continue
 
+        document = _catalog_document(catalog)
+        match = gain_for_entry(_catalog_entry(document, cue.catalog_id), decoded)
         timed.append(
             TimedClip(
                 start_ms=start_ms,
                 end_ms=end_ms,
                 audio_bytes=downloaded.audio_bytes,
                 query=cue.query,
-                gain_db=gain_for_entry(_catalog_entry(catalog, cue.catalog_id), decoded),
+                gain_db=round(match + sfx_level_db(document), 1),
             )
         )
 

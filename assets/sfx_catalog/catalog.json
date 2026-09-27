@@ -2,7 +2,8 @@
   "version": 1,
   "catalog_only": true,
   "notes": "Fixed picture-book and bedtime-story sound slots. freesound_id and preview_url stay empty until scripts/build_sfx_catalog.py runs with FREESOUND_API_KEY. Story requests may use only these entries.",
-  "loudness_target_dbfs": -20.0,
+  "loudness_target_lufs": -20.0,
+  "sfx_level_db": 0.0,
   "entries": [
     {
       "id": "dog-bark",
@@ -35,7 +36,7 @@
       "username": "kwahmah_02",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/dog-bark.mp3",
-      "gain_db": -8.3
+      "gain_db": -7.9
     },
     {
       "id": "cat-meow",
@@ -67,7 +68,7 @@
       "username": "nathan-osman",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/cat-meow.mp3",
-      "gain_db": -8.5
+      "gain_db": -10.6
     },
     {
       "id": "bird-chirp",
@@ -99,7 +100,7 @@
       "username": "InspectorJ",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/bird-chirp.mp3",
-      "gain_db": -3.6
+      "gain_db": -5.3
     },
     {
       "id": "owl-hoot",
@@ -130,7 +131,7 @@
       "username": "Anthousai",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/owl-hoot.mp3",
-      "gain_db": 3.3
+      "gain_db": 7.6
     },
     {
       "id": "horse-neigh",
@@ -161,7 +162,7 @@
       "username": "InspectorJ",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/horse-neigh.mp3",
-      "gain_db": -2.0
+      "gain_db": -1.7
     },
     {
       "id": "frog-croak",
@@ -192,7 +193,7 @@
       "username": "egomassive",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/frog-croak.mp3",
-      "gain_db": -0.8
+      "gain_db": -1.1
     },
     {
       "id": "bee-buzz",
@@ -223,7 +224,7 @@
       "username": "JonCon_Library",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/bee-buzz.mp3",
-      "gain_db": -8.3
+      "gain_db": -5.6
     },
     {
       "id": "lion-roar",
@@ -253,7 +254,7 @@
       "username": "craigsmith",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/lion-roar.mp3",
-      "gain_db": -8.0
+      "gain_db": -3.6
     },
     {
       "id": "mouse-squeak",
@@ -283,7 +284,7 @@
       "username": "Higgs01",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/mouse-squeak.mp3",
-      "gain_db": -5.2
+      "gain_db": 0.0
     },
     {
       "id": "duck-quack",
@@ -313,7 +314,7 @@
       "username": "qubodup",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/duck-quack.mp3",
-      "gain_db": -2.0
+      "gain_db": -0.9
     },
     {
       "id": "cow-moo",
@@ -343,7 +344,7 @@
       "username": "dobroide",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/cow-moo.mp3",
-      "gain_db": -0.1
+      "gain_db": -0.6
     },
     {
       "id": "sheep-baa",
@@ -374,7 +375,7 @@
       "username": "satoristudios3",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/sheep-baa.mp3",
-      "gain_db": -1.6
+      "gain_db": -2.9
     },
     {
       "id": "rain",
@@ -406,7 +407,7 @@
       "username": "Talitha5",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/rain.mp3",
-      "gain_db": 8.5
+      "gain_db": 6.0
     },
     {
       "id": "wind",
@@ -437,7 +438,7 @@
       "username": "dhallcomposer",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/wind.mp3",
-      "gain_db": 9.4
+      "gain_db": 18.3
     },
     {
       "id": "thunder",
@@ -467,7 +468,7 @@
       "username": "Fission9",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/thunder.mp3",
-      "gain_db": 3.3
+      "gain_db": 8.8
     },
     {
       "id": "stream",
@@ -500,7 +501,7 @@
       "username": "mhtaylor67",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/stream.mp3",
-      "gain_db": 1.3
+      "gain_db": 2.3
     },
     {
       "id": "ocean-waves",
@@ -534,7 +535,7 @@
       "username": "Keith Selmes",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/ocean-waves.mp3",
-      "gain_db": 2.4
+      "gain_db": 6.2
     },
     {
       "id": "leaves-rustle",
@@ -565,7 +566,7 @@
       "username": "j1987",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/leaves-rustle.mp3",
-      "gain_db": 6.5
+      "gain_db": 7.5
     },
     {
       "id": "campfire",
@@ -597,7 +598,7 @@
       "username": "kyles",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/campfire.mp3",
-      "gain_db": 2.8
+      "gain_db": 2.4
     },
     {
       "id": "crickets",
@@ -627,7 +628,7 @@
       "username": "FreethinkerAnon",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/crickets.mp3",
-      "gain_db": 10.2
+      "gain_db": 5.1
     },
     {
       "id": "door-creak",
@@ -661,7 +662,7 @@
       "username": "Ryding",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/door-creak.mp3",
-      "gain_db": -11.9
+      "gain_db": -13.5
     },
     {
       "id": "door-close",
@@ -694,7 +695,7 @@
       "username": "soundmary",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/door-close.mp3",
-      "gain_db": -6.1
+      "gain_db": -3.4
     },
     {
       "id": "footsteps-wood",
@@ -727,7 +728,7 @@
       "username": "KVV_Audio",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/footsteps-wood.mp3",
-      "gain_db": 3.5
+      "gain_db": 2.0
     },
     {
       "id": "footsteps-soft",
@@ -759,7 +760,7 @@
       "username": "IENBA",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/footsteps-soft.mp3",
-      "gain_db": 11.3
+      "gain_db": 13.5
     },
     {
       "id": "clock-tick",
@@ -790,7 +791,7 @@
       "username": "OwlStorm",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/clock-tick.mp3",
-      "gain_db": 9.9
+      "gain_db": 11.8
     },
     {
       "id": "kettle-whistle",
@@ -821,7 +822,7 @@
       "username": "tgerginov",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/kettle-whistle.mp3",
-      "gain_db": 2.4
+      "gain_db": 3.1
     },
     {
       "id": "pages-turning",
@@ -854,7 +855,7 @@
       "username": "stumpbutt",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/pages-turning.mp3",
-      "gain_db": 6.3
+      "gain_db": 4.1
     },
     {
       "id": "blanket-rustle",
@@ -886,7 +887,7 @@
       "username": "OwlStorm",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/blanket-rustle.mp3",
-      "gain_db": 3.5
+      "gain_db": 10.7
     },
     {
       "id": "magic-chime",
@@ -922,7 +923,7 @@
       "username": "qubodup",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/magic-chime.mp3",
-      "gain_db": -5.2
+      "gain_db": -3.1
     },
     {
       "id": "twinkle",
@@ -955,7 +956,7 @@
       "username": "aji_",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/twinkle.mp3",
-      "gain_db": 7.1
+      "gain_db": 7.6
     },
     {
       "id": "whoosh",
@@ -988,7 +989,7 @@
       "username": "xkeril",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/whoosh.mp3",
-      "gain_db": -1.9
+      "gain_db": -3.4
     },
     {
       "id": "soft-bell",
@@ -1018,7 +1019,7 @@
       "username": "steffcaffrey",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/soft-bell.mp3",
-      "gain_db": -7.3
+      "gain_db": -6.1
     },
     {
       "id": "harp-pluck",
@@ -1050,7 +1051,7 @@
       "username": "nathanmanaker",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/harp-pluck.mp3",
-      "gain_db": -1.2
+      "gain_db": 0.6
     },
     {
       "id": "train-whistle",
@@ -1081,7 +1082,7 @@
       "username": "Bidone",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/train-whistle.mp3",
-      "gain_db": -1.1
+      "gain_db": -1.0
     },
     {
       "id": "bicycle-bell",
@@ -1112,7 +1113,7 @@
       "username": "qubodup",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/bicycle-bell.mp3",
-      "gain_db": -1.7
+      "gain_db": -0.1
     },
     {
       "id": "car-horn",
@@ -1143,7 +1144,7 @@
       "username": "Julien_Matthey",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/car-horn.mp3",
-      "gain_db": -7.1
+      "gain_db": -5.1
     },
     {
       "id": "boat-horn",
@@ -1174,7 +1175,7 @@
       "username": "trezz77",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/boat-horn.mp3",
-      "gain_db": -6.1
+      "gain_db": -6.9
     },
     {
       "id": "kids-laughter",
@@ -1207,7 +1208,7 @@
       "username": "OBXJohn",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/kids-laughter.mp3",
-      "gain_db": 1.2
+      "gain_db": 3.1
     },
     {
       "id": "soft-gasp",
@@ -1238,7 +1239,7 @@
       "username": "dr_skitz",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/soft-gasp.mp3",
-      "gain_db": -6.0
+      "gain_db": -4.1
     },
     {
       "id": "soft-applause",
@@ -1268,7 +1269,7 @@
       "username": "Breviceps",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/soft-applause.mp3",
-      "gain_db": 1.0
+      "gain_db": 0.4
     },
     {
       "id": "heartbeat",
@@ -1298,7 +1299,7 @@
       "username": "CTCollab",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/heartbeat.mp3",
-      "gain_db": 5.3
+      "gain_db": 11.3
     },
     {
       "id": "yawn",
@@ -1327,7 +1328,7 @@
       "username": "DrFortyseven",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/yawn.mp3",
-      "gain_db": -7.0
+      "gain_db": 0.6
     },
     {
       "id": "rooster",
@@ -1357,7 +1358,7 @@
       "username": "InspectorJ",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/rooster.mp3",
-      "gain_db": -6.5
+      "gain_db": -6.1
     },
     {
       "id": "rain-window",
@@ -1389,7 +1390,7 @@
       "username": "InspectorJ",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/rain-window.mp3",
-      "gain_db": 9.5
+      "gain_db": 15.5
     },
     {
       "id": "morning-birds",
@@ -1421,7 +1422,7 @@
       "username": "musicradiocreative",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/morning-birds.mp3",
-      "gain_db": 1.6
+      "gain_db": 5.4
     },
     {
       "id": "cat-purr",
@@ -1453,7 +1454,7 @@
       "username": "Richard1052",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/cat-purr.mp3",
-      "gain_db": 12.0
+      "gain_db": 15.6
     },
     {
       "id": "pig-oink",
@@ -1484,7 +1485,7 @@
       "username": "qubodup",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/pig-oink.mp3",
-      "gain_db": -0.9
+      "gain_db": -2.1
     },
     {
       "id": "chicken-cluck",
@@ -1516,7 +1517,7 @@
       "username": "D4XX",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/chicken-cluck.mp3",
-      "gain_db": -7.6
+      "gain_db": -9.1
     },
     {
       "id": "horse-hooves",
@@ -1551,7 +1552,7 @@
       "username": "craigsmith",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/horse-hooves.mp3",
-      "gain_db": -1.2
+      "gain_db": 1.8
     },
     {
       "id": "door-knock",
@@ -1584,7 +1585,7 @@
       "username": "Flem0527",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/door-knock.mp3",
-      "gain_db": 12.0
+      "gain_db": 9.7
     },
     {
       "id": "doorbell",
@@ -1616,7 +1617,7 @@
       "username": "jwheeler91",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/doorbell.mp3",
-      "gain_db": -8.1
+      "gain_db": -6.1
     },
     {
       "id": "stairs-creak",
@@ -1650,7 +1651,7 @@
       "username": "Rudmer_Rotteveel",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/stairs-creak.mp3",
-      "gain_db": 2.9
+      "gain_db": 3.2
     },
     {
       "id": "clock-chime",
@@ -1682,7 +1683,7 @@
       "username": "ecfike",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/clock-chime.mp3",
-      "gain_db": 12.0
+      "gain_db": 16.6
     },
     {
       "id": "telephone-ring",
@@ -1715,7 +1716,7 @@
       "username": "meisterleise",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/telephone-ring.mp3",
-      "gain_db": -10.2
+      "gain_db": -13.5
     },
     {
       "id": "footsteps-leaves",
@@ -1748,7 +1749,7 @@
       "username": "ahill86",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/footsteps-leaves.mp3",
-      "gain_db": 11.1
+      "gain_db": 10.3
     },
     {
       "id": "footsteps-run",
@@ -1781,7 +1782,7 @@
       "username": "florianreichelt",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/footsteps-run.mp3",
-      "gain_db": 4.6
+      "gain_db": 5.0
     },
     {
       "id": "magic-poof",
@@ -1817,7 +1818,7 @@
       "username": "Planman",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/magic-poof.mp3",
-      "gain_db": -4.9
+      "gain_db": -0.4
     },
     {
       "id": "treasure-jingle",
@@ -1852,7 +1853,7 @@
       "username": "PetervH",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/treasure-jingle.mp3",
-      "gain_db": -4.9
+      "gain_db": -7.2
     },
     {
       "id": "chest-open",
@@ -1885,7 +1886,7 @@
       "username": "spookymodem",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/chest-open.mp3",
-      "gain_db": 3.0
+      "gain_db": 6.6
     },
     {
       "id": "dragon-roar",
@@ -1915,7 +1916,7 @@
       "username": "bevibeldesign",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/dragon-roar.mp3",
-      "gain_db": -7.4
+      "gain_db": -4.8
     },
     {
       "id": "train-chug",
@@ -1949,7 +1950,7 @@
       "username": "steaq",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/train-chug.mp3",
-      "gain_db": -2.6
+      "gain_db": -1.0
     },
     {
       "id": "sleigh-bells",
@@ -1982,7 +1983,7 @@
       "username": "jsm1963",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/sleigh-bells.mp3",
-      "gain_db": -6.7
+      "gain_db": -9.2
     },
     {
       "id": "cartoon-boing",
@@ -2015,7 +2016,7 @@
       "username": "magnuswaker",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/cartoon-boing.mp3",
-      "gain_db": -5.5
+      "gain_db": -1.9
     },
     {
       "id": "fall-thud",
@@ -2050,7 +2051,7 @@
       "username": "Kneeling",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/fall-thud.mp3",
-      "gain_db": -6.9
+      "gain_db": -3.4
     },
     {
       "id": "ball-bounce",
@@ -2083,7 +2084,7 @@
       "username": "Uzbazur",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/ball-bounce.mp3",
-      "gain_db": 0.7
+      "gain_db": 0.5
     },
     {
       "id": "wind-gust",
@@ -2114,7 +2115,7 @@
       "username": "F3ather",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/wind-gust.mp3",
-      "gain_db": 0.4
+      "gain_db": 1.9
     },
     {
       "id": "snow-crunch",
@@ -2146,7 +2147,7 @@
       "username": "alexo400",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/snow-crunch.mp3",
-      "gain_db": -2.6
+      "gain_db": 2.1
     },
     {
       "id": "splash",
@@ -2177,7 +2178,7 @@
       "username": "qubodup",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/splash.mp3",
-      "gain_db": -4.2
+      "gain_db": -0.6
     },
     {
       "id": "water-drip",
@@ -2209,7 +2210,7 @@
       "username": "bajko",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/water-drip.mp3",
-      "gain_db": -0.6
+      "gain_db": -0.3
     },
     {
       "id": "waterfall",
@@ -2239,7 +2240,7 @@
       "username": "InspectorJ",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/waterfall.mp3",
-      "gain_db": 12.0
+      "gain_db": 9.9
     },
     {
       "id": "twig-snap",
@@ -2271,7 +2272,7 @@
       "username": "kyles",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/twig-snap.mp3",
-      "gain_db": 6.9
+      "gain_db": 3.6
     },
     {
       "id": "snore-soft",
@@ -2304,7 +2305,7 @@
       "username": "studiogreenhill",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/snore-soft.mp3",
-      "gain_db": 11.4
+      "gain_db": 14.6
     },
     {
       "id": "sneeze",
@@ -2335,7 +2336,7 @@
       "username": "DarkNightPrincess",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/sneeze.mp3",
-      "gain_db": 1.4
+      "gain_db": 2.9
     },
     {
       "id": "cheer-small",
@@ -2366,7 +2367,7 @@
       "username": "xtrgamr",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/cheer-small.mp3",
-      "gain_db": -5.9
+      "gain_db": -6.6
     },
     {
       "id": "bird-wings",
@@ -2401,7 +2402,7 @@
       "username": "sinewave1kHz",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/bird-wings.mp3",
-      "gain_db": 12.0
+      "gain_db": 4.4
     },
     {
       "id": "wolf-howl",
@@ -2434,7 +2435,7 @@
       "username": "Sacha.Julien",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/wolf-howl.mp3",
-      "gain_db": 4.3
+      "gain_db": 6.3
     },
     {
       "id": "elephant-trumpet",
@@ -2465,7 +2466,7 @@
       "username": "D.jones",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/elephant-trumpet.mp3",
-      "gain_db": -4.1
+      "gain_db": -6.1
     },
     {
       "id": "bear-growl",
@@ -2497,7 +2498,7 @@
       "username": "celldroid",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/bear-growl.mp3",
-      "gain_db": 2.7
+      "gain_db": 6.2
     },
     {
       "id": "seagull-cry",
@@ -2530,7 +2531,7 @@
       "username": "Joker313",
       "status": "pending",
       "preview_path": "assets/sfx_catalog/previews/seagull-cry.mp3",
-      "gain_db": -9.5
+      "gain_db": -4.9
     }
   ]
 }
