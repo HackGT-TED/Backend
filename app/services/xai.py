@@ -101,6 +101,18 @@ class XaiAuthError(XaiError):
     """xAI rejected the configured key."""
 
 
+# grok-4.7 reasons before it returns JSON. A one-minute read limit drops
+# cue planning on a full story. Downloads keep the shorter HTTP_TIMEOUT_SECONDS.
+_XAI_READ_TIMEOUT_FLOOR_SECONDS = 180.0
+
+
+def xai_timeout(settings: Settings) -> httpx.Timeout:
+    """Read timeout for Chat Completions. At least three minutes."""
+
+    read_seconds = max(float(settings.http_timeout_seconds), _XAI_READ_TIMEOUT_FLOOR_SECONDS)
+    return httpx.Timeout(connect=30.0, read=read_seconds, write=60.0, pool=30.0)
+
+
 class HttpXaiClient:
     """Chat Completions client. A missing key fails before any HTTP call."""
 
@@ -108,8 +120,9 @@ class HttpXaiClient:
         self._api_key = settings.xai_api_key.strip()
         self._model = settings.xai_model
         self._url = settings.xai_base_url.rstrip("/") + "/chat/completions"
+        self._timeout = xai_timeout(settings)
         self._owns_http = http is None
-        self._http = http or httpx.Client(timeout=settings.http_timeout_seconds)
+        self._http = http or httpx.Client(timeout=self._timeout)
 
     def close(self) -> None:
         if self._owns_http:
@@ -190,6 +203,12 @@ class HttpXaiClient:
                 },
                 json=payload,
             )
+        except httpx.TimeoutException as exc:
+            raise XaiError(
+                f"xAI did not answer within {self._timeout.read:.0f}s. "
+                "Cue planning can take a few minutes. "
+                "Set HTTP_TIMEOUT_SECONDS higher than 180 and run the same command again."
+            ) from exc
         except httpx.HTTPError as exc:
             raise XaiError(f"xAI request failed: {exc}") from exc
 

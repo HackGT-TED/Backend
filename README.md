@@ -71,7 +71,7 @@ The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and 
 | `DEEPGRAM_LANGUAGE` | no | `en` | Language hint passed to Deepgram. |
 | `GLADIA_API_KEY` | if Deepgram is unset | empty | Fallback transcriber for `/stories/render`. Ignored when `DEEPGRAM_API_KEY` is set. |
 | `CORS_ORIGINS` | no | `*` | Comma-separated browser origins for the web and kids apps. |
-| `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for xAI and FreeSound. Raise this if `grok-4.7` reasoning runs long. |
+| `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for Deepgram and FreeSound. xAI cue planning waits at least 180 seconds, or this value when it is higher. |
 
 A missing `XAI_API_KEY` or Supabase key raises before any external call that needs it. Supabase is checked when the recording row is created, so a missing project URL returns **503** before xAI is called. The catalog read is separate: with no Supabase keys, or when the active row is missing, the API uses `assets/sfx_catalog/catalog.json`. After a row exists, a failed xAI or FreeSound call is stored as `status: "failed"` and the response includes `recording_id`. `FREESOUND_API_KEY` is required only to fill the catalog, or when `FREESOUND_CATALOG_ONLY=false`.
 
@@ -200,7 +200,7 @@ Cue planning uses xAI's [OpenAI-compatible Chat Completions API](https://docs.x.
 - Auth header: `Authorization: Bearer $XAI_API_KEY`
 - Structured cues: `response_format.type = "json_schema"` with the `sfx_plan` schema (`catalog_id`, `description`, `start`, `end` in seconds). `catalog_id` must be one of the ids in the active catalog (the Supabase row, or `assets/sfx_catalog/catalog.json` when that row is not used). The client still accepts fenced JSON or a JSON object wrapped in prose if the message is not bare JSON.
 - A missing key fails in-process with `XaiNotConfiguredError` and does not open a socket.
-- `grok-4.7` reasons by default. The default HTTP timeout is 60 seconds; set `HTTP_TIMEOUT_SECONDS` higher if planning calls time out.
+- `grok-4.7` reasons by default. Cue planning waits at least 180 seconds even when `HTTP_TIMEOUT_SECONDS` is 60. Set `HTTP_TIMEOUT_SECONDS` above 180 if a long story still times out.
 
 xAI only chooses which catalog sounds are similar to the story and when they play. It does not download audio and it does not mix. Python drops any id that is not in the catalog, fetches those preview files, and places them on the recording.
 
