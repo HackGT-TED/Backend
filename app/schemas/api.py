@@ -123,14 +123,21 @@ class StoryDescription(BaseModel):
     audio: str | None = None
     duration_seconds: float
     transcript_text: str
-    description: str
-    hashtags: list[str] = Field(default_factory=list)
+    description: str = Field(
+        description="One-sentence catalog summary. The same sentence POST /stories/describe returns."
+    )
+    hashtags: list[str] = Field(
+        default_factory=list,
+        description="One to three of spooky, calm, funny, adventure, bedtime, animals, nature, family, magic.",
+    )
 
 
 class StoryCover(StoryDescription):
-    """Catalog card plus a picture-book cover URL. No mixed audio."""
+    """Describe payload plus a picture-book cover. One request, no second summarize call."""
 
-    scene: str
+    scene: str = Field(
+        description="One visual moment used only to draw the cover. Not the catalog summary."
+    )
     image_url: str
 
 

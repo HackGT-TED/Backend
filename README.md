@@ -149,7 +149,19 @@ curl -sS -X POST http://127.0.0.1:8000/stories/cover \
   -F "audio=@story.mp3;type=audio/mpeg"
 ```
 
-The JSON matches `/stories/describe`, plus `scene` and `image_url`. When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, the server asks Grok Imagine for the image bytes and uploads them to the public `story-sfx` bucket at `covers/<id>.jpg`. `image_url` is that public Storage URL, so it still works after the Imagine link expires and after a Render deploy wipes the disk. Without those keys, `image_url` is the temporary Imagine URL. Override the model with `XAI_IMAGE_MODEL`.
+```json
+{
+  "audio": "story.mp3",
+  "duration_seconds": 17.232,
+  "transcript_text": "The dog barked once.",
+  "description": "A short outdoor story where a dog barks.",
+  "hashtags": ["animals", "calm"],
+  "scene": "A spotted dog bounces beside a kid in a red raincoat.",
+  "image_url": "https://<project>.supabase.co/storage/v1/object/public/story-sfx/covers/<id>.jpg"
+}
+```
+
+`description` and `hashtags` are the catalog summary from `/stories/describe`. They come from the same xAI call that writes `scene`, so you do not call both endpoints. `scene` is only the moment in the picture. When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, the server asks Grok Imagine for the image bytes and uploads them to the public `story-sfx` bucket at `covers/<id>.jpg`. `image_url` is that public Storage URL, so it still works after the Imagine link expires and after a Render deploy wipes the disk. Without those keys, `image_url` is the temporary Imagine URL. Override the model with `XAI_IMAGE_MODEL`.
 
 The `127.0.0.1` curl above is only how you call a copy running on your machine. The route itself calls `https://api.deepgram.com` and `https://api.x.ai`. On Render, post the same body to `https://<your-service>.onrender.com/stories/cover`.
 

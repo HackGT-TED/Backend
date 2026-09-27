@@ -178,11 +178,13 @@ async def describe_story(request: Request) -> StoryDescription:
 
 @router.post("/cover", response_model=StoryCover)
 async def cover_story(request: Request) -> StoryCover:
-    """Transcribe a recording, write a catalog card, and draw one picture-book cover.
+    """Transcribe a recording, summarize it, and draw one picture-book cover.
 
-    Same audio input as ``/stories/describe``. Does not plan cues or mix audio.
-    The image URL is a public Supabase object when that project is configured.
-    Without Supabase it is the temporary Grok Imagine URL.
+    Same audio input as ``/stories/describe``. ``description`` and ``hashtags``
+    are that catalog summary, so a client does not also call ``/stories/describe``.
+    Does not plan cues or mix audio. The image URL is a public Supabase object
+    when that project is configured. Without Supabase it is the temporary
+    Grok Imagine URL.
     """
 
     content_type = request.headers.get("content-type", "")
