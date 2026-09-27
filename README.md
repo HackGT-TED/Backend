@@ -58,6 +58,7 @@ The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and 
 | `XAI_API_KEY` | to process stories | empty | Bearer token for xAI Chat Completions. |
 | `XAI_BASE_URL` | no | `https://api.x.ai/v1` | OpenAI-compatible base URL. |
 | `XAI_MODEL` | no | `grok-4.7` | Chat model id. `grok-4.7` supports structured outputs. |
+| `XAI_IMAGE_MODEL` | no | `grok-imagine-image-2.0` | Grok Imagine model for `POST /stories/cover`. |
 | `FREESOUND_API_KEY` | to build the catalog | empty | FreeSound APIv2 token for `scripts/build_sfx_catalog.py`. Not sent on catalog-only story requests. |
 | `FREESOUND_BASE_URL` | no | `https://freesound.org` | API host for the builder and for live search. |
 | `FREESOUND_CATALOG_ONLY` | no | `true` | Match cues to `assets/sfx_catalog/catalog.json` and download that preview. `false` searches FreeSound per cue. |
@@ -138,6 +139,17 @@ curl -sS -X POST http://127.0.0.1:8000/stories/describe \
 ```
 
 `description` is one sentence. `hashtags` is one to three of: `spooky`, `calm`, `funny`, `adventure`, `bedtime`, `animals`, `nature`, `family`, `magic`. Needs `XAI_API_KEY` and a transcriber key (`DEEPGRAM_API_KEY`, or `GLADIA_API_KEY` for an upload). A JSON `url` is fetched by Deepgram.
+
+### `POST /stories/cover`
+
+Same audio input as `/stories/describe`. After the transcript, one xAI call writes the description, hashtags, and a single picture moment. Grok Imagine (`grok-imagine-image-2.0`) then draws a square picture-book cover from that card. The style instructions are fixed: gouache and colored pencil, playful, child-friendly, and not photoreal. Does not plan cues or mix audio.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/stories/cover \
+  -F "audio=@story.mp3;type=audio/mpeg"
+```
+
+The JSON matches `/stories/describe`, plus `scene` and `image_url`. The image URL is temporary, so save the file if the catalog should keep it. Override the model with `XAI_IMAGE_MODEL`.
 
 ### `POST /stories/transcribe`
 
@@ -336,7 +348,7 @@ assets/sfx_catalog/catalog.json  fixed kids-book sound slots
 scripts/build_sfx_catalog.py     one-shot FreeSound fill for those slots
 scripts/render_story.py          audio file -> mixed MP3
 app/services/store.py       Supabase table + Storage
-app/api/routes.py           /stories/render, /stories/describe, /stories/process, /health
+app/api/routes.py           /stories/render, /stories/describe, /stories/cover, /stories/process, /health
 supabase/schema.sql         recordings table and story-sfx bucket
 fixtures/deepgram_sample.json
 ```

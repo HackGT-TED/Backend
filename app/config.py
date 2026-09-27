@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     # https://docs.x.ai/docs/models/grok-4.7
     xai_base_url: str = "https://api.x.ai/v1"
     xai_model: str = "grok-4.7"
+    # POST {base}/images/generations. https://docs.x.ai/developers/model-capabilities/images/generation
+    xai_image_model: str = "grok-imagine-image-2.0"
 
     freesound_api_key: str = ""
     freesound_base_url: str = "https://freesound.org"

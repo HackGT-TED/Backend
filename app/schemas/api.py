@@ -101,6 +101,22 @@ class StoryBlurb(BaseModel):
         return self
 
 
+class StoryCard(StoryBlurb):
+    """Catalog card plus one picture-book moment. Still not a sound-effect plan."""
+
+    scene: str
+
+    @model_validator(mode="after")
+    def _keep_one_moment(self) -> "StoryCard":
+        scene = " ".join(self.scene.split())
+        if not scene:
+            raise ValueError("scene is empty")
+        if len(scene) > 240:
+            scene = scene[:237].rstrip() + "..."
+        self.scene = scene
+        return self
+
+
 class StoryDescription(BaseModel):
     """Catalog metadata for one recording. No mixed audio."""
 
@@ -109,6 +125,13 @@ class StoryDescription(BaseModel):
     transcript_text: str
     description: str
     hashtags: list[str] = Field(default_factory=list)
+
+
+class StoryCover(StoryDescription):
+    """Catalog card plus a picture-book cover URL. No mixed audio."""
+
+    scene: str
+    image_url: str
 
 
 class TranscriptOut(BaseModel):

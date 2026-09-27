@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.schemas.api import StoryBlurb
+from app.schemas.api import StoryBlurb, StoryCard
 from app.schemas.sfx import SfxCue
 from app.services.sfx_catalog import CATALOG_PATH, load_catalog
 from app.services.xai import XaiNotConfiguredError
@@ -64,8 +64,8 @@ def _settings(**overrides) -> Settings:
     return Settings(**data)
 
 
-def _client(xai, freesound, deepgram=None, settings=None) -> tuple[TestClient, MemoryRecordingStore]:
-    app, store = _app(xai, freesound, deepgram, settings=settings)
+def _client(xai, freesound, deepgram=None, settings=None, imagine=None) -> tuple[TestClient, MemoryRecordingStore]:
+    app, store = _app(xai, freesound, deepgram, settings=settings, imagine=imagine)
     return TestClient(app), store
 
 
@@ -100,7 +100,7 @@ def _file_catalog() -> dict:
     return load_catalog(CATALOG_PATH)
 
 
-def _app(xai, freesound, deepgram=None, catalog_loader=None, settings=None):
+def _app(xai, freesound, deepgram=None, catalog_loader=None, settings=None, imagine=None):
     store = MemoryRecordingStore()
     app = create_app(
         settings=settings or _settings(),
@@ -109,6 +109,7 @@ def _app(xai, freesound, deepgram=None, catalog_loader=None, settings=None):
         store=store,
         deepgram_client=deepgram,
         catalog_loader=catalog_loader or _file_catalog,
+        imagine_client=imagine,
     )
     return app, store
 
@@ -437,6 +438,66 @@ def test_describe_url_uses_the_same_transcript():
         assert body["hashtags"] == ["calm"]
     assert deepgram.urls == ["https://example.test/story.mp3"]
     assert xai.described == 1
+
+
+def test_cover_upload_describes_then_draws_without_mixing():
+    deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
+
+    class PictureXai:
+        def __init__(self) -> None:
+            self.pictured = 0
+
+        def plan_cues(self, transcript, catalog=None):
+            raise AssertionError("a cover must not plan sound effects")
+
+        def picture_story(self, transcript):
+            self.pictured += 1
+            assert transcript.text.startswith("The rain began")
+            return StoryCard(
+                description="Rain taps the roof while a family stays inside.",
+                hashtags=["calm", "bedtime"],
+                scene="A family looks out a round window at the rain.",
+            )
+
+    class FakeImagine:
+        def __init__(self) -> None:
+            self.prompts: list[str] = []
+
+        def generate(self, prompt: str) -> str:
+            self.prompts.append(prompt)
+            assert "Rain taps the roof" in prompt
+            assert "round window" in prompt
+            assert "No photoreal skin" in prompt
+            return "https://im.example/cover.jpg"
+
+    xai = PictureXai()
+    imagine = FakeImagine()
+    freesound = FakeFreeSound()
+    client, _store = _client(
+        xai,
+        freesound,
+        deepgram,
+        settings=_settings(deepgram_api_key="dg-test"),
+        imagine=imagine,
+    )
+    with client:
+        response = client.post(
+            "/stories/cover",
+            files={"audio": ("story.mp3", b"not-real-audio", "audio/mpeg")},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["audio"] == "story.mp3"
+        assert body["duration_seconds"] == 55.78
+        assert body["description"] == "Rain taps the roof while a family stays inside."
+        assert body["hashtags"] == ["calm", "bedtime"]
+        assert body["scene"] == "A family looks out a round window at the rain."
+        assert body["image_url"] == "https://im.example/cover.jpg"
+        assert "cues" not in body
+    assert deepgram.audio == [(len(b"not-real-audio"), "audio/mpeg")]
+    assert xai.pictured == 1
+    assert len(imagine.prompts) == 1
+    assert freesound.queries == []
 
 
 def test_describe_missing_xai_key_is_503():

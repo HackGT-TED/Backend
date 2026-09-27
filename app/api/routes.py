@@ -15,6 +15,7 @@ from app.schemas.api import (
     ProcessStoryRequest,
     RecordingDetail,
     RecordingSummary,
+    StoryCover,
     StoryDescription,
     TranscriptOut,
     TranscriptSegmentOut,
@@ -22,6 +23,7 @@ from app.schemas.api import (
 )
 from app.schemas.deepgram import DeepgramTranscript
 from app.schemas.sfx import SfxCue
+from app.services.imagine import cover_prompt
 from app.services.deepgram import DeepgramAuthError, DeepgramError, DeepgramNotConfiguredError
 from app.services.freesound import FreeSoundNotConfiguredError, FreeSoundRateLimitError
 from app.services.mixer import AudioJoinError, AudioMixError, join_audio
@@ -168,6 +170,32 @@ async def describe_story(request: Request) -> StoryDescription:
         if not isinstance(url, str) or not url.strip():
             raise HTTPException(status_code=422, detail="JSON body must include url")
         return await run_in_threadpool(_describe_url, request, url.strip())
+    raise HTTPException(
+        status_code=422,
+        detail="Send a JSON body with url, or multipart form data with an audio file",
+    )
+
+
+@router.post("/cover", response_model=StoryCover)
+async def cover_story(request: Request) -> StoryCover:
+    """Transcribe a recording, write a catalog card, and draw one picture-book cover.
+
+    Same audio input as ``/stories/describe``. Does not plan cues or mix audio.
+    The image URL is temporary.
+    """
+
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" in content_type:
+        data, mime, filename = await _read_story_audio(request)
+        return await run_in_threadpool(_cover_upload, request, data, mime, filename)
+    if "application/json" in content_type:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=422, detail="JSON body must be an object")
+        url = payload.get("url") or payload.get("audio_url")
+        if not isinstance(url, str) or not url.strip():
+            raise HTTPException(status_code=422, detail="JSON body must include url")
+        return await run_in_threadpool(_cover_url, request, url.strip())
     raise HTTPException(
         status_code=422,
         detail="Send a JSON body with url, or multipart form data with an audio file",
@@ -374,6 +402,64 @@ def _describe_transcript(request: Request, raw: dict, audio: str) -> StoryDescri
         transcript_text=transcript.text,
         description=blurb.description,
         hashtags=list(blurb.hashtags),
+    )
+
+
+def _cover_upload(request: Request, data: bytes, mime: str, filename: str) -> StoryCover:
+    try:
+        raw = transcribe_audio(
+            request.app.state.settings,
+            request.app.state.deepgram,
+            data,
+            mime,
+            filename,
+        )
+    except (TranscriptionNotConfiguredError, DeepgramNotConfiguredError, DeepgramAuthError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (TranscriptionError, DeepgramError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return _cover_transcript(request, raw, filename)
+
+
+def _cover_url(request: Request, url: str) -> StoryCover:
+    raw = _call_deepgram(lambda: request.app.state.deepgram.transcribe_url(url))
+    return _cover_transcript(request, raw, url)
+
+
+def _cover_transcript(request: Request, raw: dict, audio: str) -> StoryCover:
+    try:
+        transcript = DeepgramTranscript.model_validate(raw).normalized()
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=json.loads(exc.json())) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    picture = getattr(request.app.state.xai, "picture_story", None)
+    if picture is None:
+        raise HTTPException(status_code=500, detail="xAI client cannot describe a story")
+    try:
+        card = picture(transcript)
+    except (XaiNotConfiguredError, XaiAuthError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except XaiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    prompt = cover_prompt(card, transcript.duration_seconds)
+    try:
+        image_url = request.app.state.imagine.generate(prompt)
+    except (XaiNotConfiguredError, XaiAuthError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except XaiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return StoryCover(
+        audio=audio,
+        duration_seconds=transcript.duration_seconds,
+        transcript_text=transcript.text,
+        description=card.description,
+        hashtags=list(card.hashtags),
+        scene=card.scene,
+        image_url=image_url,
     )
 
 
