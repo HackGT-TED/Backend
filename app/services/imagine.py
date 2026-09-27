@@ -3,7 +3,12 @@
 ``POST {XAI_BASE_URL}/images/generations`` with ``grok-imagine-image-2.0``.
 The chat model only supplies the story moment. This module owns the style
 instructions so every cover stays a playful picture book.
+
+A URL response is temporary. Production asks for base64 bytes and stores
+them in Supabase so the catalog does not keep an xAI link.
 """
+
+import base64
 
 import httpx
 
@@ -62,6 +67,22 @@ class HttpImagineClient:
             )
         if not prompt.strip():
             raise XaiError("Image prompt was empty, so no image was requested.")
+        body = self._post(prompt, response_format="url")
+        return _image_url(body)
+
+    def generate_bytes(self, prompt: str) -> tuple[bytes, str]:
+        """Return image bytes and a content type. Nothing is written to disk."""
+
+        if not self._api_key:
+            raise XaiNotConfiguredError(
+                "XAI_API_KEY is not set. Add it to .env (see .env.example). "
+                "No request was sent."
+            )
+        if not prompt.strip():
+            raise XaiError("Image prompt was empty, so no image was requested.")
+        return _image_bytes(self._post(prompt, response_format="b64_json"))
+
+    def _post(self, prompt: str, *, response_format: str) -> object:
         try:
             response = self._http.post(
                 self._url,
@@ -76,7 +97,7 @@ class HttpImagineClient:
                     "aspect_ratio": "1:1",
                     "resolution": "1k",
                     "quality": "low",
-                    "response_format": "url",
+                    "response_format": response_format,
                 },
             )
         except httpx.TimeoutException as exc:
@@ -93,7 +114,33 @@ class HttpImagineClient:
         if response.status_code >= 400:
             detail = response.text[:500]
             raise XaiError(f"Grok Imagine request failed (HTTP {response.status_code}): {detail}")
-        return _image_url(response.json())
+        return response.json()
+
+
+def _image_bytes(body: object) -> tuple[bytes, str]:
+    if not isinstance(body, dict):
+        raise XaiError("Unexpected Grok Imagine response shape")
+    data = body.get("data")
+    if not isinstance(data, list) or not data or not isinstance(data[0], dict):
+        raise XaiError("Grok Imagine returned no image")
+    encoded = data[0].get("b64_json")
+    if not isinstance(encoded, str) or not encoded:
+        raise XaiError("Grok Imagine returned no image bytes")
+    try:
+        raw = base64.b64decode(encoded, validate=True)
+    except ValueError as exc:
+        raise XaiError("Grok Imagine image bytes could not be read") from exc
+    if not raw:
+        raise XaiError("Grok Imagine returned an empty image")
+    return raw, _image_content_type(raw)
+
+
+def _image_content_type(raw: bytes) -> str:
+    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if raw.startswith(b"RIFF") and raw[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
 
 
 def _image_url(body: object) -> str:

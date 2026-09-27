@@ -121,6 +121,20 @@ def _record(recording_id: str, story_id: str | None = "story-1") -> RecordingRec
     )
 
 
+def test_upload_cover_returns_a_public_url():
+    client = FakeSupabase()
+    store = SupabaseRecordingStore(_settings(), client=client)
+    png = b"\x89PNG\r\n\x1a\nrest"
+    url = store.upload_cover(png, "image/png")
+    assert url.startswith(
+        "https://proj.supabase.co/storage/v1/object/public/story-sfx/covers/"
+    )
+    assert url.endswith(".png")
+    assert client.bucket == "story-sfx"
+    assert client.last_options["content-type"] == "image/png"
+    assert list(client.uploads.values()) == [png]
+
+
 def test_round_trip_row_and_public_sfx_url():
     client = FakeSupabase()
     store = SupabaseRecordingStore(_settings(), client=client)

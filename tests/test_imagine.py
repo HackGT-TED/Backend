@@ -1,5 +1,6 @@
 """Grok Imagine cover prompt and client."""
 
+import base64
 import json
 
 import httpx
@@ -53,6 +54,26 @@ def test_generate_posts_imagine_and_returns_the_url():
         url = client.generate(cover_prompt(_card(), 30))
 
     assert url == "https://im.example/cover.jpg"
+
+
+def test_generate_bytes_decodes_the_image():
+    raw = b"\xff\xd8\xff\xd9"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["response_format"] == "b64_json"
+        assert body["quality"] == "low"
+        return httpx.Response(
+            200,
+            json={"data": [{"b64_json": base64.b64encode(raw).decode()}]},
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        client = HttpImagineClient(Settings(xai_api_key="test-key"), http=http)
+        image, content_type = client.generate_bytes("a rainy window")
+
+    assert image == raw
+    assert content_type == "image/jpeg"
 
 
 def test_missing_key_does_not_post():

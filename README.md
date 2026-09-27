@@ -149,7 +149,9 @@ curl -sS -X POST http://127.0.0.1:8000/stories/cover \
   -F "audio=@story.mp3;type=audio/mpeg"
 ```
 
-The JSON matches `/stories/describe`, plus `scene` and `image_url`. The image URL is temporary, so save the file if the catalog should keep it. Override the model with `XAI_IMAGE_MODEL`.
+The JSON matches `/stories/describe`, plus `scene` and `image_url`. When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, the server asks Grok Imagine for the image bytes and uploads them to the public `story-sfx` bucket at `covers/<id>.jpg`. `image_url` is that public Storage URL, so it still works after the Imagine link expires and after a Render deploy wipes the disk. Without those keys, `image_url` is the temporary Imagine URL. Override the model with `XAI_IMAGE_MODEL`.
+
+The `127.0.0.1` curl above is only how you call a copy running on your machine. The route itself calls `https://api.deepgram.com` and `https://api.x.ai`. On Render, post the same body to `https://<your-service>.onrender.com/stories/cover`.
 
 ### `POST /stories/transcribe`
 
@@ -298,6 +300,22 @@ A smaller document also works:
 ```
 
 Story length is `metadata.duration` when that is longer than the last word, so trailing silence stays in the SFX track. Each clip is trimmed to its cue window so a long preview cannot spill into the next sentence. The timeline is padded or trimmed to that duration before ffmpeg encodes the MP3. Encoder framing can add a few dozen milliseconds around that exact length.
+
+## Deploy on Render
+
+This is a Render web service. It does not listen on localhost in production. Render sets `PORT` (usually `10000`) and sends public HTTPS to that port.
+
+Start command:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+Build command: `pip install -r requirements.txt`. Health check path: `/health`. `render.yaml` has the same start command and the env var names. Put the secret values in the Render dashboard, not in the repo.
+
+Set `XAI_API_KEY`, `DEEPGRAM_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`. Cover images are stored in `SUPABASE_SFX_BUCKET` (`story-sfx`). `XAI_BASE_URL` stays `https://api.x.ai/v1` and `DEEPGRAM_BASE_URL` stays `https://api.deepgram.com`. A missing `.env` file is fine: the process reads those variables from the environment.
+
+Render closes a web request that runs longer than 100 seconds. `/stories/cover` uses low reasoning and low image quality so it can finish inside that window. Cue planning still uses the longer xAI read timeout, so a very long `/stories/render` can still hit that 100 second limit.
 
 ## Deploy on Vercel
 

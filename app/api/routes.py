@@ -181,7 +181,8 @@ async def cover_story(request: Request) -> StoryCover:
     """Transcribe a recording, write a catalog card, and draw one picture-book cover.
 
     Same audio input as ``/stories/describe``. Does not plan cues or mix audio.
-    The image URL is temporary.
+    The image URL is a public Supabase object when that project is configured.
+    Without Supabase it is the temporary Grok Imagine URL.
     """
 
     content_type = request.headers.get("content-type", "")
@@ -426,6 +427,22 @@ def _cover_url(request: Request, url: str) -> StoryCover:
     return _cover_transcript(request, raw, url)
 
 
+def _cover_image_url(request: Request, prompt: str) -> str:
+    """Public Storage URL when Supabase is configured, otherwise the temporary Imagine URL.
+
+    Render's disk is wiped on every deploy, and the Imagine URL expires.
+    The bytes are uploaded in this request so the JSON the app stores later
+    still points at a public object.
+    """
+
+    settings = request.app.state.settings
+    imagine = request.app.state.imagine
+    if settings.supabase_url.strip() and settings.supabase_service_role_key.strip():
+        image_bytes, content_type = imagine.generate_bytes(prompt)
+        return request.app.state.store.upload_cover(image_bytes, content_type)
+    return imagine.generate(prompt)
+
+
 def _cover_transcript(request: Request, raw: dict, audio: str) -> StoryCover:
     try:
         transcript = DeepgramTranscript.model_validate(raw).normalized()
@@ -446,10 +463,10 @@ def _cover_transcript(request: Request, raw: dict, audio: str) -> StoryCover:
 
     prompt = cover_prompt(card, transcript.duration_seconds)
     try:
-        image_url = request.app.state.imagine.generate(prompt)
-    except (XaiNotConfiguredError, XaiAuthError) as exc:
+        image_url = _cover_image_url(request, prompt)
+    except (XaiNotConfiguredError, XaiAuthError, SupabaseNotConfiguredError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except XaiError as exc:
+    except (XaiError, SupabaseError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return StoryCover(

@@ -464,16 +464,19 @@ def test_cover_upload_describes_then_draws_without_mixing():
             self.prompts: list[str] = []
 
         def generate(self, prompt: str) -> str:
+            raise AssertionError("a configured Supabase project must store the image bytes")
+
+        def generate_bytes(self, prompt: str) -> tuple[bytes, str]:
             self.prompts.append(prompt)
             assert "Rain taps the roof" in prompt
             assert "round window" in prompt
             assert "No photoreal skin" in prompt
-            return "https://im.example/cover.jpg"
+            return b"\xff\xd8\xff cover", "image/jpeg"
 
     xai = PictureXai()
     imagine = FakeImagine()
     freesound = FakeFreeSound()
-    client, _store = _client(
+    client, store = _client(
         xai,
         freesound,
         deepgram,
@@ -492,12 +495,55 @@ def test_cover_upload_describes_then_draws_without_mixing():
         assert body["description"] == "Rain taps the roof while a family stays inside."
         assert body["hashtags"] == ["calm", "bedtime"]
         assert body["scene"] == "A family looks out a round window at the rain."
-        assert body["image_url"] == "https://im.example/cover.jpg"
+        assert (
+            body["image_url"]
+            == "https://example.supabase.co/storage/v1/object/public/story-sfx/covers/story.jpg"
+        )
+        assert store.files["covers/story.jpg"] == b"\xff\xd8\xff cover"
         assert "cues" not in body
     assert deepgram.audio == [(len(b"not-real-audio"), "audio/mpeg")]
     assert xai.pictured == 1
     assert len(imagine.prompts) == 1
     assert freesound.queries == []
+
+
+def test_cover_without_supabase_returns_the_temporary_image_url():
+    deepgram = FakeDeepgram(json.loads(FIXTURE.read_text()))
+
+    class PictureXai:
+        def picture_story(self, transcript):
+            return StoryCard(
+                description="A dog barks once.",
+                hashtags=["animals"],
+                scene="A spotted dog in a red raincoat.",
+            )
+
+    class UrlImagine:
+        def generate(self, prompt: str) -> str:
+            return "https://im.example/cover.jpg"
+
+        def generate_bytes(self, prompt: str) -> tuple[bytes, str]:
+            raise AssertionError("without Supabase the temporary URL is enough")
+
+    client, store = _client(
+        PictureXai(),
+        FakeFreeSound(),
+        deepgram,
+        settings=_settings(
+            deepgram_api_key="dg-test",
+            supabase_url="",
+            supabase_service_role_key="",
+        ),
+        imagine=UrlImagine(),
+    )
+    with client:
+        response = client.post(
+            "/stories/cover",
+            files={"audio": ("story.mp3", b"not-real-audio", "audio/mpeg")},
+        )
+        assert response.status_code == 200
+        assert response.json()["image_url"] == "https://im.example/cover.jpg"
+    assert store.files == {}
 
 
 def test_describe_missing_xai_key_is_503():
