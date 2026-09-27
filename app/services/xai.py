@@ -22,7 +22,7 @@ from typing import Protocol
 import httpx
 
 from app.config import Settings
-from app.schemas.api import STORY_HASHTAGS, StoryBlurb
+from app.schemas.api import STORY_HASHTAGS, StoryBlurb, StoryCard
 from app.schemas.deepgram import NormalizedTranscript
 from app.schemas.sfx import (
     SFX_RESPONSE_FORMAT,
@@ -73,6 +73,37 @@ SUMMARY_RESPONSE_FORMAT: dict = {
                 },
             },
             "required": ["description", "hashtags"],
+        },
+    },
+}
+
+_PICTURE_PROMPT = """You write a catalog card for one children's story recording, plus one picture moment.
+You are given the transcript from speech-to-text. You do not choose sound effects and you do not time anything.
+
+- description is one sentence a parent could scan in a list of stories.
+- hashtags are 1 to 3 tags, and each tag is copied from this list only: spooky, calm, funny, adventure, bedtime, animals, nature, family, magic.
+- Pick the tags that actually fit the story. Leave the others out.
+- scene is one sentence a child could point at: who is in the picture, where they are, and what they are doing. Use details from the transcript. No sound-effect words, no camera words, no style words.
+"""
+
+PICTURE_RESPONSE_FORMAT: dict = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "story_picture",
+        "description": "Catalog description, hashtags, and one picture-book moment.",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "description": {"type": "string"},
+                "hashtags": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": list(STORY_HASHTAGS)},
+                },
+                "scene": {"type": "string"},
+            },
+            "required": ["description", "hashtags", "scene"],
         },
     },
 }
@@ -173,6 +204,38 @@ class HttpXaiClient:
         except ValueError as exc:
             raise XaiError(f"xAI summary JSON could not be read: {exc}") from exc
 
+    def picture_story(self, transcript: NormalizedTranscript) -> StoryCard:
+        """Catalog card plus one visual moment. Does not plan cues or draw the image."""
+
+        if not self._api_key:
+            raise XaiNotConfiguredError(
+                "XAI_API_KEY is not set. Add it to .env (see .env.example). "
+                "No request was sent."
+            )
+        if not transcript.text.strip():
+            raise XaiError("Transcript was empty, so no description was requested.")
+        text = self._post_completion(
+            [
+                {"role": "system", "content": _PICTURE_PROMPT},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "transcript": transcript.text,
+                            "duration_seconds": transcript.duration_seconds,
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+            PICTURE_RESPONSE_FORMAT,
+            reasoning_effort="low",
+        )
+        try:
+            return _parse_picture(text)
+        except ValueError as exc:
+            raise XaiError(f"xAI picture JSON could not be read: {exc}") from exc
+
     def _complete(self, transcript: NormalizedTranscript, catalog: list[dict] | None) -> SfxPlan:
         user = transcript.prompt_payload()
         user["catalog"] = catalog or []
@@ -188,12 +251,20 @@ class HttpXaiClient:
         except ValueError as exc:
             raise XaiError(f"xAI cue JSON did not match the SFX schema: {exc}") from exc
 
-    def _post_completion(self, messages: list[dict], response_format: dict) -> str:
+    def _post_completion(
+        self,
+        messages: list[dict],
+        response_format: dict,
+        *,
+        reasoning_effort: str | None = None,
+    ) -> str:
         payload = {
             "model": self._model,
             "messages": messages,
             "response_format": response_format,
         }
+        if reasoning_effort:
+            payload["reasoning_effort"] = reasoning_effort
         try:
             response = self._http.post(
                 self._url,
@@ -252,6 +323,10 @@ def _parse_plan(text: str) -> SfxPlan:
 
 def _parse_summary(text: str) -> StoryBlurb:
     return StoryBlurb.model_validate_json(_json_object(text))
+
+
+def _parse_picture(text: str) -> StoryCard:
+    return StoryCard.model_validate_json(_json_object(text))
 
 
 def _json_object(text: str) -> str:

@@ -9,6 +9,7 @@ The server uses the service role key. The anon key is not read. Marketplace
 and social data are not stored here.
 """
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Protocol
@@ -33,6 +34,9 @@ class RecordingStore(Protocol):
 
     def upload_sfx(self, recording_id: str, audio_bytes: bytes) -> tuple[str, str]:
         """Store MP3 bytes and return ``(storage_path, public_url)``."""
+
+    def upload_cover(self, image_bytes: bytes, content_type: str = "image/jpeg") -> str:
+        """Store a cover image and return its public URL."""
 
 
 class SupabaseError(RuntimeError):
@@ -121,6 +125,28 @@ class SupabaseRecordingStore:
             raise SupabaseError("Supabase did not return a public URL for the SFX object")
         return path, url
 
+    def upload_cover(self, image_bytes: bytes, content_type: str = "image/jpeg") -> str:
+        if not image_bytes:
+            raise SupabaseError("Refusing to upload an empty cover image")
+        extension = _image_extension(content_type)
+        path = f"covers/{uuid.uuid4()}.{extension}"
+        try:
+            self._supabase().storage.from_(self._bucket).upload(
+                path,
+                image_bytes,
+                file_options={"content-type": content_type, "upsert": "true"},
+            )
+            url = self._supabase().storage.from_(self._bucket).get_public_url(path)
+        except SupabaseNotConfiguredError:
+            raise
+        except SupabaseError:
+            raise
+        except Exception as exc:
+            raise SupabaseError(f"Supabase storage upload failed: {exc}") from exc
+        if not isinstance(url, str) or not url:
+            raise SupabaseError("Supabase did not return a public URL for the cover image")
+        return url
+
     def _supabase(self) -> Any:
         if self._client is None:
             self._client = open_supabase(self._settings)
@@ -169,6 +195,15 @@ def rows_of(response: Any) -> list[dict[str, Any]]:
     if not data:
         return []
     return list(data)
+
+
+def _image_extension(content_type: str) -> str:
+    kind = content_type.split(";", 1)[0].strip().lower()
+    if kind == "image/png":
+        return "png"
+    if kind == "image/webp":
+        return "webp"
+    return "jpg"
 
 
 def to_iso(value: datetime) -> str:

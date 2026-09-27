@@ -208,6 +208,38 @@ def test_limit_drops_a_second_cue_in_the_same_sentence():
     assert [cue.catalog_id for cue in kept] == ["rain", "door"]
 
 
+def test_picture_story_posts_a_scene_and_keeps_known_tags():
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["response_format"]["json_schema"]["name"] == "story_picture"
+        assert body["reasoning_effort"] == "low"
+        system = body["messages"][0]["content"]
+        assert "sound effects" in system
+        assert "scene" in system
+        user = json.loads(body["messages"][1]["content"])
+        assert "The rain began" in user["transcript"]
+        assert "catalog" not in user
+        content = json.dumps(
+            {
+                "description": "  A calm bedtime story about rain on the roof.  ",
+                "hashtags": ["Calm", "#bedtime", "not-a-tag", "animals"],
+                "scene": "  A child and a dog watch rain from a yellow window.  ",
+            }
+        )
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": content}}]},
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        client = HttpXaiClient(_settings(), http=http)
+        card = client.picture_story(_transcript())
+
+    assert card.description == "A calm bedtime story about rain on the roof."
+    assert card.hashtags == ["calm", "bedtime", "animals"]
+    assert card.scene == "A child and a dog watch rain from a yellow window."
+
+
 def test_align_cues_clamps_the_start_and_drops_tiny_windows():
     aligned = align_cues(
         [

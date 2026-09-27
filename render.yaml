@@ -1,0 +1,40 @@
+# Render web service. Secrets are entered in the dashboard (sync: false).
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: ted-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.11"
+      - key: XAI_API_KEY
+        sync: false
+      - key: XAI_BASE_URL
+        value: https://api.x.ai/v1
+      - key: XAI_MODEL
+        value: grok-4.7
+      - key: XAI_IMAGE_MODEL
+        value: grok-imagine-image-2.0
+      - key: DEEPGRAM_API_KEY
+        sync: false
+      - key: DEEPGRAM_BASE_URL
+        value: https://api.deepgram.com
+      - key: DEEPGRAM_MODEL
+        value: nova-3
+      - key: DEEPGRAM_LANGUAGE
+        value: en
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_SFX_BUCKET
+        value: story-sfx
+      - key: FREESOUND_API_KEY
+        sync: false
+      - key: FREESOUND_CATALOG_ONLY
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "*"

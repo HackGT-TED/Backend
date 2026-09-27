@@ -30,3 +30,10 @@ class MemoryRecordingStore:
         self.files[path] = audio_bytes
         url = f"https://example.supabase.co/storage/v1/object/public/story-sfx/{path}"
         return path, url
+
+    def upload_cover(self, image_bytes: bytes, content_type: str = "image/jpeg") -> str:
+        extension = "png" if content_type == "image/png" else "jpg"
+        path = f"covers/story.{extension}"
+        self.files[path] = image_bytes
+        self.cover_type = content_type
+        return f"https://example.supabase.co/storage/v1/object/public/story-sfx/{path}"

@@ -58,6 +58,7 @@ The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and 
 | `XAI_API_KEY` | to process stories | empty | Bearer token for xAI Chat Completions. |
 | `XAI_BASE_URL` | no | `https://api.x.ai/v1` | OpenAI-compatible base URL. |
 | `XAI_MODEL` | no | `grok-4.7` | Chat model id. `grok-4.7` supports structured outputs. |
+| `XAI_IMAGE_MODEL` | no | `grok-imagine-image-2.0` | Grok Imagine model for `POST /stories/cover`. |
 | `FREESOUND_API_KEY` | to build the catalog | empty | FreeSound APIv2 token for `scripts/build_sfx_catalog.py`. Not sent on catalog-only story requests. |
 | `FREESOUND_BASE_URL` | no | `https://freesound.org` | API host for the builder and for live search. |
 | `FREESOUND_CATALOG_ONLY` | no | `true` | Match cues to `assets/sfx_catalog/catalog.json` and download that preview. `false` searches FreeSound per cue. |
@@ -138,6 +139,31 @@ curl -sS -X POST http://127.0.0.1:8000/stories/describe \
 ```
 
 `description` is one sentence. `hashtags` is one to three of: `spooky`, `calm`, `funny`, `adventure`, `bedtime`, `animals`, `nature`, `family`, `magic`. Needs `XAI_API_KEY` and a transcriber key (`DEEPGRAM_API_KEY`, or `GLADIA_API_KEY` for an upload). A JSON `url` is fetched by Deepgram.
+
+### `POST /stories/cover`
+
+Same audio input as `/stories/describe`. After the transcript, one xAI call writes the description, hashtags, and a single picture moment. That call uses `reasoning_effort=low` so it does not sit in the long cue-planning think. Grok Imagine (`grok-imagine-image-2.0`) then draws a square picture-book cover at `quality=low` and `1k`. The style instructions stay fixed: gouache and colored pencil, playful, child-friendly, and not photoreal. Does not plan cues or mix audio.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/stories/cover \
+  -F "audio=@story.mp3;type=audio/mpeg"
+```
+
+```json
+{
+  "audio": "story.mp3",
+  "duration_seconds": 17.232,
+  "transcript_text": "The dog barked once.",
+  "description": "A short outdoor story where a dog barks.",
+  "hashtags": ["animals", "calm"],
+  "scene": "A spotted dog bounces beside a kid in a red raincoat.",
+  "image_url": "https://<project>.supabase.co/storage/v1/object/public/story-sfx/covers/<id>.jpg"
+}
+```
+
+`description` and `hashtags` are the catalog summary from `/stories/describe`. They come from the same xAI call that writes `scene`, so you do not call both endpoints. `scene` is only the moment in the picture. When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, the server asks Grok Imagine for the image bytes and uploads them to the public `story-sfx` bucket at `covers/<id>.jpg`. `image_url` is that public Storage URL, so it still works after the Imagine link expires and after a Render deploy wipes the disk. Without those keys, `image_url` is the temporary Imagine URL. Override the model with `XAI_IMAGE_MODEL`.
+
+The `127.0.0.1` curl above is only how you call a copy running on your machine. The route itself calls `https://api.deepgram.com` and `https://api.x.ai`. On Render, post the same body to `https://<your-service>.onrender.com/stories/cover`.
 
 ### `POST /stories/transcribe`
 
@@ -287,6 +313,22 @@ A smaller document also works:
 
 Story length is `metadata.duration` when that is longer than the last word, so trailing silence stays in the SFX track. Each clip is trimmed to its cue window so a long preview cannot spill into the next sentence. The timeline is padded or trimmed to that duration before ffmpeg encodes the MP3. Encoder framing can add a few dozen milliseconds around that exact length.
 
+## Deploy on Render
+
+This is a Render web service. It does not listen on localhost in production. Render sets `PORT` (usually `10000`) and sends public HTTPS to that port.
+
+Start command:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+Build command: `pip install -r requirements.txt`. Health check path: `/health`. `render.yaml` has the same start command and the env var names. Put the secret values in the Render dashboard, not in the repo.
+
+Set `XAI_API_KEY`, `DEEPGRAM_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`. Cover images are stored in `SUPABASE_SFX_BUCKET` (`story-sfx`). `XAI_BASE_URL` stays `https://api.x.ai/v1` and `DEEPGRAM_BASE_URL` stays `https://api.deepgram.com`. A missing `.env` file is fine: the process reads those variables from the environment.
+
+Render closes a web request that runs longer than 100 seconds. `/stories/cover` uses low reasoning and low image quality so it can finish inside that window. Cue planning still uses the longer xAI read timeout, so a very long `/stories/render` can still hit that 100 second limit.
+
 ## Deploy on Vercel
 
 The FastAPI app is one Python function. Vercel loads `app` from `app/main.py` via `[tool.vercel] entrypoint = "app.main:app"` in `pyproject.toml`. `vercel.json` sets `maxDuration` to 60 seconds because cue planning, FreeSound downloads, and the mix can outlast the platform default.
@@ -336,7 +378,7 @@ assets/sfx_catalog/catalog.json  fixed kids-book sound slots
 scripts/build_sfx_catalog.py     one-shot FreeSound fill for those slots
 scripts/render_story.py          audio file -> mixed MP3
 app/services/store.py       Supabase table + Storage
-app/api/routes.py           /stories/render, /stories/describe, /stories/process, /health
+app/api/routes.py           /stories/render, /stories/describe, /stories/cover, /stories/process, /health
 supabase/schema.sql         recordings table and story-sfx bucket
 fixtures/deepgram_sample.json
 ```

@@ -101,14 +101,44 @@ class StoryBlurb(BaseModel):
         return self
 
 
+class StoryCard(StoryBlurb):
+    """Catalog card plus one picture-book moment. Still not a sound-effect plan."""
+
+    scene: str
+
+    @model_validator(mode="after")
+    def _keep_one_moment(self) -> "StoryCard":
+        scene = " ".join(self.scene.split())
+        if not scene:
+            raise ValueError("scene is empty")
+        if len(scene) > 240:
+            scene = scene[:237].rstrip() + "..."
+        self.scene = scene
+        return self
+
+
 class StoryDescription(BaseModel):
     """Catalog metadata for one recording. No mixed audio."""
 
     audio: str | None = None
     duration_seconds: float
     transcript_text: str
-    description: str
-    hashtags: list[str] = Field(default_factory=list)
+    description: str = Field(
+        description="One-sentence catalog summary. The same sentence POST /stories/describe returns."
+    )
+    hashtags: list[str] = Field(
+        default_factory=list,
+        description="One to three of spooky, calm, funny, adventure, bedtime, animals, nature, family, magic.",
+    )
+
+
+class StoryCover(StoryDescription):
+    """Describe payload plus a picture-book cover. One request, no second summarize call."""
+
+    scene: str = Field(
+        description="One visual moment used only to draw the cover. Not the catalog summary."
+    )
+    image_url: str
 
 
 class TranscriptOut(BaseModel):

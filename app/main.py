@@ -16,13 +16,14 @@ from app.services.deepgram import DeepgramClient, HttpDeepgramClient
 from app.services.freesound import FreeSoundClient, HttpFreeSoundClient
 from app.services.catalog_store import SupabaseCatalogStore, load_runtime_catalog
 from app.services.store import RecordingStore, SupabaseRecordingStore
+from app.services.imagine import HttpImagineClient
 from app.services.xai import HttpXaiClient, XaiClient
 
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
-    for name in ("xai", "freesound", "deepgram"):
+    for name in ("xai", "imagine", "freesound", "deepgram"):
         client = getattr(app.state, name, None)
         close = getattr(client, "close", None)
         if callable(close):
@@ -36,6 +37,7 @@ def create_app(
     store: RecordingStore | None = None,
     deepgram_client: DeepgramClient | None = None,
     catalog_loader: Callable[[], dict] | None = None,
+    imagine_client: HttpImagineClient | None = None,
 ) -> FastAPI:
     """Build the API.
 
@@ -58,6 +60,7 @@ def create_app(
     app.state.catalog_loader = loader
     app.state.store = store if store is not None else SupabaseRecordingStore(settings)
     app.state.xai = xai_client or HttpXaiClient(settings)
+    app.state.imagine = imagine_client or HttpImagineClient(settings)
     app.state.freesound = freesound_client or HttpFreeSoundClient(settings, catalog_loader=loader)
     app.state.deepgram = deepgram_client or HttpDeepgramClient(settings)
 
