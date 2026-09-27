@@ -14,6 +14,7 @@ from app.services.freesound import (
     FreeSoundNotConfiguredError,
     FreeSoundRateLimitError,
 )
+from app.services.loudness import gain_for_entry, sfx_level_db
 from app.services.mixer import (
     AudioMixError,
     TimedClip,
@@ -115,18 +116,21 @@ def _plan_and_mix(
             continue
 
         try:
-            load_clip(downloaded.audio_bytes)
+            decoded = load_clip(downloaded.audio_bytes)
         except AudioMixError as exc:
             warnings.append(f"Skipped cue {cue.query!r}: {exc}")
             logger.warning("Undecodable clip for %s: %s", cue.query, exc)
             continue
 
+        document = _catalog_document(catalog)
+        match = gain_for_entry(_catalog_entry(document, cue.catalog_id), decoded)
         timed.append(
             TimedClip(
                 start_ms=start_ms,
                 end_ms=end_ms,
                 audio_bytes=downloaded.audio_bytes,
                 query=cue.query,
+                gain_db=round(match + sfx_level_db(document), 1),
             )
         )
 
@@ -150,15 +154,35 @@ def _plan_and_mix(
 
 
 def _catalog_for_planning(catalog: dict | None = None) -> list[dict]:
+    document = _catalog_document(catalog)
+    if document is None:
+        return []
+    entries = document.get("entries")
+    if not isinstance(entries, list):
+        return []
+    return catalog_choices(entries)
+
+
+def _catalog_entry(catalog: dict | None, slot_id: str) -> dict | None:
+    document = _catalog_document(catalog)
+    if document is None:
+        return None
+    entries = document.get("entries")
+    if not isinstance(entries, list):
+        return None
+    for entry in entries:
+        if isinstance(entry, dict) and str(entry.get("id") or "") == slot_id:
+            return entry
+    return None
+
+
+def _catalog_document(catalog: dict | None) -> dict | None:
     if catalog is None:
         try:
             catalog = load_catalog(CATALOG_PATH)
         except (OSError, ValueError) as exc:
             logger.warning("SFX catalog could not be loaded for planning: %s", exc)
-            return []
+            return None
     if not isinstance(catalog, dict):
-        return []
-    entries = catalog.get("entries")
-    if not isinstance(entries, list):
-        return []
-    return catalog_choices(entries)
+        return None
+    return catalog

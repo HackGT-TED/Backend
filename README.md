@@ -71,7 +71,7 @@ The mix step writes an MP3 under the system temp directory (`/tmp` on Linux and 
 | `DEEPGRAM_LANGUAGE` | no | `en` | Language hint passed to Deepgram. |
 | `GLADIA_API_KEY` | if Deepgram is unset | empty | Fallback transcriber for `/stories/render`. Ignored when `DEEPGRAM_API_KEY` is set. |
 | `CORS_ORIGINS` | no | `*` | Comma-separated browser origins for the web and kids apps. |
-| `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for xAI and FreeSound. Raise this if `grok-4.7` reasoning runs long. |
+| `HTTP_TIMEOUT_SECONDS` | no | `60` | Timeout for Deepgram and FreeSound. xAI cue planning waits at least 180 seconds, or this value when it is higher. |
 
 A missing `XAI_API_KEY` or Supabase key raises before any external call that needs it. Supabase is checked when the recording row is created, so a missing project URL returns **503** before xAI is called. The catalog read is separate: with no Supabase keys, or when the active row is missing, the API uses `assets/sfx_catalog/catalog.json`. After a row exists, a failed xAI or FreeSound call is stored as `status: "failed"` and the response includes `recording_id`. `FREESOUND_API_KEY` is required only to fill the catalog, or when `FREESOUND_CATALOG_ONLY=false`.
 
@@ -200,7 +200,7 @@ Cue planning uses xAI's [OpenAI-compatible Chat Completions API](https://docs.x.
 - Auth header: `Authorization: Bearer $XAI_API_KEY`
 - Structured cues: `response_format.type = "json_schema"` with the `sfx_plan` schema (`catalog_id`, `description`, `start`, `end` in seconds). `catalog_id` must be one of the ids in the active catalog (the Supabase row, or `assets/sfx_catalog/catalog.json` when that row is not used). The client still accepts fenced JSON or a JSON object wrapped in prose if the message is not bare JSON.
 - A missing key fails in-process with `XaiNotConfiguredError` and does not open a socket.
-- `grok-4.7` reasons by default. The default HTTP timeout is 60 seconds; set `HTTP_TIMEOUT_SECONDS` higher if planning calls time out.
+- `grok-4.7` reasons by default. Cue planning waits at least 180 seconds even when `HTTP_TIMEOUT_SECONDS` is 60. Set `HTTP_TIMEOUT_SECONDS` above 180 if a long story still times out.
 
 xAI only chooses which catalog sounds are similar to the story and when they play. It does not download audio and it does not mix. Python drops any id that is not in the catalog, fetches those preview files, and places them on the recording.
 
@@ -230,7 +230,7 @@ To copy the checked-in file into Supabase after you fill it:
 python scripts/build_sfx_catalog.py --push
 ```
 
-`--push` still writes `catalog.json`, then upserts `public.sfx_catalog` and increments `version`. The same helper is `save_active_catalog` / `push_checked_in_catalog` in `app/services/catalog_store.py`.
+`--push` still writes `catalog.json`, then upserts `public.sfx_catalog` and increments `version`. That payload includes `loudness_target_lufs`, `sfx_level_db`, and a `gain_db` on each filled slot. The same helper is `save_active_catalog` / `push_checked_in_catalog` in `app/services/catalog_store.py`. Production reads this row, so a push is what makes the shared clip volume live.
 
 The checked-in file lists the slots with empty FreeSound ids. Fill them once:
 
@@ -242,7 +242,7 @@ That needs `FREESOUND_API_KEY`. It picks one sound per empty or rejected slot (r
 
 A cue that matches a slot with no `preview_url` is skipped with a warning that names the builder. A cue that matches nothing in the catalog is skipped the same way. Pending slots that already have a preview URL are used. Rejected slots are ignored.
 
-Preview MP3s are what this service mixes. `download_url` in the catalog is FreeSound's original-file endpoint and needs OAuth2, which v1 does not implement. HTTP 429 on a preview download is retried up to three times using `Retry-After` or a short backoff. If every cue is still rate-limited, the request returns **429**. Create a token at <https://freesound.org/apiv2/apply>.
+The builder measures each preview's integrated loudness and stores `gain_db` so every clip lands at `loudness_target_lufs` (-20 LUFS). It writes that leveled MP3 to `assets/sfx_catalog/previews/<id>.mp3` (the raw download stays in `previews/source/`). The mixer downloads the original FreeSound URL and applies the same `gain_db`, then adds `sfx_level_db` from the catalog document. That one number turns every effect up or down together. `0` plays the matched preview level. A slot with no `gain_db` yet is measured from the downloaded bytes on that request. `download_url` in the catalog is FreeSound's original-file endpoint and needs OAuth2, which v1 does not implement. HTTP 429 on a preview download is retried up to three times using `Retry-After` or a short backoff. If every cue is still rate-limited, the request returns **429**. Create a token at <https://freesound.org/apiv2/apply>.
 
 Set `FREESOUND_CATALOG_ONLY=false` only if you want the old per-cue text search (`GET /apiv2/search/text/`, `Authorization: Token` on the API host, first preview-bearing hit). Catalog mode does not send the token to the preview CDN.
 

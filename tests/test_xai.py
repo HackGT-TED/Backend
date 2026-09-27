@@ -14,6 +14,7 @@ from app.services.xai import (
     XaiAuthError,
     XaiError,
     XaiNotConfiguredError,
+    xai_timeout,
 )
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "deepgram_sample.json"
@@ -32,6 +33,19 @@ def _settings(**overrides) -> Settings:
     }
     data.update(overrides)
     return Settings(**data)
+
+
+def test_cue_planning_waits_at_least_three_minutes():
+    timeout = xai_timeout(_settings(http_timeout_seconds=60))
+    assert timeout.read == 180
+    longer = xai_timeout(_settings(http_timeout_seconds=300))
+    assert longer.read == 300
+
+    client = HttpXaiClient(_settings(http_timeout_seconds=60))
+    try:
+        assert client._http.timeout.read == 180
+    finally:
+        client.close()
 
 
 def test_missing_key_fails_before_any_request():

@@ -4,7 +4,9 @@
 Python sends the file to Deepgram (or Gladia when only GLADIA_API_KEY is set).
 xAI only chooses which catalog ids match the words and when they play. Python
 downloads those FreeSound previews and lays them on the recording at those times.
-The output length is the recording. A second xAI call, separate from cue
+Each preview is shifted by the ``gain_db`` stored on its catalog entry so the
+clips share one loudness, then by ``sfx_level_db`` (one offset for every
+effect). The output length is the recording. A second xAI call, separate from cue
 planning, writes a one-sentence description and a few hashtags into the JSON
 sidecar next to the cue list.
 
@@ -68,7 +70,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    ready = _catalog_preview_count(CATALOG_PATH)
+    catalog = load_catalog(CATALOG_PATH)
+    ready = _catalog_preview_count(catalog)
     if ready == 0:
         print(
             f"{CATALOG_PATH} has no preview_url values, so no catalog clip can be downloaded. "
@@ -89,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
         except (TranscriptionError, ValueError) as exc:
             print(str(exc), file=sys.stderr)
             return 1
-        output = run_pipeline(transcript, xai, freesound, story_bytes=audio)
+        output = run_pipeline(transcript, xai, freesound, story_bytes=audio, catalog=catalog)
         try:
             blurb = xai.describe_story(transcript)
         except XaiError as exc:
@@ -113,11 +116,14 @@ def main(argv: list[str] | None = None) -> int:
                 "description": blurb.description,
                 "hashtags": blurb.hashtags,
                 "warnings": output.warnings,
+                "loudness_target_lufs": catalog.get("loudness_target_lufs"),
+                "sfx_level_db": catalog.get("sfx_level_db", 0),
                 "cues": [
                     {
                         "catalog_id": cue.catalog_id,
                         "query": cue.query,
                         "description": cue.description,
+                        "gain_db": _gain_db(catalog, cue.catalog_id),
                         "start": cue.start,
                         "end": cue.end,
                         "start_ms": cue.start_ms,
@@ -146,8 +152,17 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _catalog_preview_count(path: Path) -> int:
-    catalog = load_catalog(path)
+def _gain_db(catalog: dict, slot_id: str) -> float | None:
+    for entry in catalog.get("entries") or []:
+        if isinstance(entry, dict) and str(entry.get("id") or "") == slot_id:
+            gain = entry.get("gain_db")
+            if isinstance(gain, (int, float)) and not isinstance(gain, bool):
+                return float(gain)
+            return None
+    return None
+
+
+def _catalog_preview_count(catalog: dict) -> int:
     return sum(
         1
         for entry in catalog["entries"]

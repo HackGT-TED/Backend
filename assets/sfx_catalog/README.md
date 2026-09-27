@@ -16,14 +16,22 @@ python scripts/build_sfx_catalog.py
 
 The script searches FreeSound **once per empty or rejected slot**, keeps a single sound (rating, downloads, CC0 then Attribution, duration), and writes it back into `catalog.json` with `"status": "pending"`. It also downloads preview MP3s into `previews/`.
 
+It then measures every non-rejected preview and writes `gain_db` on that entry, plus `loudness_target_lufs` and `sfx_level_db` on the document. `previews/<id>.mp3` is the leveled file (listen to those). `previews/source/` keeps the original download so the next run does not measure the leveled copy. `sfx_level_db` is not baked into the preview. It is the one extra offset used when a story is mixed. Change that number to turn every effect up or down together.
+
+```bash
+python scripts/build_sfx_catalog.py --push
+```
+
+`--push` writes the file and upserts it to `public.sfx_catalog`. Run that after the gains look right so production uses the same JSON. A FreeSound API key is required only when a slot still needs a search. Measuring previews and pushing do not.
+
 Useful flags:
 
 ```bash
 python scripts/build_sfx_catalog.py --refresh      # re-pick pending slots; approved slots stay
-python scripts/build_sfx_catalog.py --no-download  # update JSON only
+python scripts/build_sfx_catalog.py --no-download  # measure gain_db without writing preview MP3s
 ```
 
-Approved rows are never replaced. A pending row that already has a FreeSound id is kept unless you pass `--refresh`. Rejected and empty rows get a new candidate. Preview files that are already on disk are not downloaded again.
+Approved rows are never replaced. A pending row that already has a FreeSound id is kept unless you pass `--refresh`. Rejected and empty rows get a new candidate. A raw file already in `previews/source/` is not downloaded again. The leveled file in `previews/` is rewritten from that raw file.
 
 The API token is sent only to `freesound.org`. Preview downloads do not send it.
 
