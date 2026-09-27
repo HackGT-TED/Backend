@@ -12,12 +12,10 @@ in the JSON is the knob.
 """
 
 import io
-import json
-import subprocess
 
 from pydub import AudioSegment
 
-from app.services.mixer import AudioMixError, ffmpeg_exe, load_clip
+from app.services.mixer import AudioMixError, ffmpeg_exe, load_clip, loudnorm_measure
 
 # Integrated loudness (LUFS) shared by every catalog preview.
 TARGET_LUFS = -20.0
@@ -96,6 +94,7 @@ def leveled_preview_bytes(audio_bytes: bytes, gain_db: float) -> bytes:
     if gain_db:
         audio = audio.apply_gain(gain_db)
     handle = io.BytesIO()
+    AudioSegment.converter = ffmpeg_exe()
     audio.export(handle, format="mp3", bitrate="128k")
     return handle.getvalue()
 
@@ -103,37 +102,8 @@ def leveled_preview_bytes(audio_bytes: bytes, gain_db: float) -> bytes:
 def integrated_lufs(audio_bytes: bytes) -> float | None:
     """EBU R128 integrated loudness, or None when the file is silent."""
 
-    if not audio_bytes:
-        return None
-    proc = subprocess.run(
-        [
-            ffmpeg_exe(),
-            "-hide_banner",
-            "-i",
-            "pipe:0",
-            "-af",
-            "loudnorm=print_format=json",
-            "-f",
-            "null",
-            "-",
-        ],
-        input=audio_bytes,
-        capture_output=True,
-        check=False,
-    )
-    text = proc.stderr.decode("utf-8", errors="replace")
-    start = text.rfind("{")
-    end = text.rfind("}")
-    if start < 0 or end < start:
-        return None
-    try:
-        payload = json.loads(text[start : end + 1])
-        level = float(payload["input_i"])
-    except (ValueError, KeyError, TypeError):
-        return None
-    if level != level or level < -70.0:
-        return None
-    return level
+    measured = loudnorm_measure(audio_bytes)
+    return None if measured is None else float(measured["input_i"])
 
 
 def _clamp_gain(gain: float, audio: AudioSegment) -> float:

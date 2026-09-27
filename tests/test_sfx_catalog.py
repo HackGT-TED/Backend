@@ -159,3 +159,20 @@ def _sound(sound_id: int, **overrides) -> dict:
     }
     data.update(overrides)
     return data
+
+
+def test_trim_start_is_read_from_the_catalog_entry_in_milliseconds():
+    from app.services.pipeline import trim_start_ms
+
+    assert trim_start_ms({"trim_start_s": 2.5}) == 2_500
+    assert trim_start_ms({"trim_start_s": 0.8}) == 800
+    for bad in ({}, None, {"trim_start_s": -1}, {"trim_start_s": "2"}, {"trim_start_s": True}):
+        assert trim_start_ms(bad) == 0
+
+
+def test_checked_in_trims_are_shorter_than_their_clips():
+    entries = load_catalog(CATALOG_PATH)["entries"]
+    trimmed = [entry for entry in entries if "trim_start_s" in entry]
+    assert {entry["id"] for entry in trimmed} >= {"bear-growl", "door-creak"}
+    for entry in trimmed:
+        assert 0 < entry["trim_start_s"] < entry["duration"]

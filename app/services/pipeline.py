@@ -123,7 +123,8 @@ def _plan_and_mix(
             continue
 
         document = _catalog_document(catalog)
-        match = gain_for_entry(_catalog_entry(document, cue.catalog_id), decoded)
+        entry = _catalog_entry(document, cue.catalog_id)
+        match = gain_for_entry(entry, decoded)
         timed.append(
             TimedClip(
                 start_ms=start_ms,
@@ -131,6 +132,7 @@ def _plan_and_mix(
                 audio_bytes=downloaded.audio_bytes,
                 query=cue.query,
                 gain_db=round(match + sfx_level_db(document), 1),
+                trim_start_ms=trim_start_ms(entry),
             )
         )
 
@@ -161,6 +163,15 @@ def _catalog_for_planning(catalog: dict | None = None) -> list[dict]:
     if not isinstance(entries, list):
         return []
     return catalog_choices(entries)
+
+
+def trim_start_ms(entry: dict | None) -> int:
+    """The entry's ``trim_start_s`` (seconds of lead-in to skip) in ms. Missing or invalid is 0."""
+
+    value = entry.get("trim_start_s") if isinstance(entry, dict) else None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not value > 0:
+        return 0
+    return int(round(value * 1000))
 
 
 def _catalog_entry(catalog: dict | None, slot_id: str) -> dict | None:

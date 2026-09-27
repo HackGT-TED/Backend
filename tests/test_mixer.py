@@ -6,15 +6,20 @@ import pytest
 
 from app.services.mixer import (
     MOMENT_GAP_MS,
+    OUTPUT_TARGET_LUFS,
     SFX_START_DELAY_MS,
     AudioJoinError,
+    SFX_UNDER_VOICE_LU,
     TimedClip,
-    effect_gain_db,
     join_audio,
     load_clip,
+    loudnorm_measure,
+    mix_on_story_bytes,
     mix_sfx_mp3,
+    narration_envelope_db,
     overlay_on_story,
     place_clips,
+    under_voice_gain_db,
 )
 from tests.wavutil import sine_wav_bytes
 
@@ -131,28 +136,130 @@ def test_effects_start_late_and_stay_under_the_narration():
     assert abs(after.dBFS - story[2_000 + SFX_START_DELAY_MS + 80 : 3_800].dBFS) < 0.5
 
 
-def test_quieter_narration_ducks_the_effect_further():
-    effect = load_clip(sine_wav_bytes(1_000, frequency=1400, amplitude=0.95))
-    loud = load_clip(sine_wav_bytes(1_000, frequency=220, amplitude=0.5))
-    quiet = load_clip(sine_wav_bytes(1_000, frequency=220, amplitude=0.05))
-    silent = AudioSegment.silent(duration=1_000, frame_rate=44100)
-
-    gain_loud = effect_gain_db(loud, effect)
-    gain_quiet = effect_gain_db(quiet, effect)
-    ducked_loud = effect.apply_gain(gain_loud)
-    ducked_quiet = effect.apply_gain(gain_quiet)
-
-    assert gain_quiet < gain_loud <= 0
-    assert ducked_loud.dBFS <= loud.dBFS - 10
-    assert ducked_quiet.dBFS <= quiet.dBFS - 10
-    assert ducked_quiet.dBFS < ducked_loud.dBFS - 6
-    assert effect.apply_gain(effect_gain_db(silent, effect)).dBFS < -24
+def test_effects_sit_a_fixed_amount_under_the_narration():
+    assert under_voice_gain_db(-30.0, -20.0) == -30.0 - SFX_UNDER_VOICE_LU + 20.0
+    assert under_voice_gain_db(-40.0, -20.0) < under_voice_gain_db(-30.0, -20.0)
+    assert under_voice_gain_db(-5.0, -20.0) == 0
+    assert under_voice_gain_db(None, -20.0) == 0
+    assert under_voice_gain_db(-90.0, -20.0) == -40.0
 
 
-def test_an_already_quiet_effect_is_not_boosted():
-    voice = load_clip(sine_wav_bytes(800, frequency=220, amplitude=0.5))
-    effect = load_clip(sine_wav_bytes(800, frequency=1400, amplitude=0.01))
-    assert effect_gain_db(voice, effect) == 0
+def test_a_mixed_effect_lands_well_under_a_quiet_voice():
+    """A catalog-level effect on a quiet recording ends up about SFX_UNDER_VOICE_LU below it."""
+
+    from app.services.loudness import TARGET_LUFS, integrated_lufs, level_match_gain_db
+
+    story_bytes = sine_wav_bytes(6_000, frequency=300, amplitude=0.03)
+    effect_bytes = sine_wav_bytes(3_000, frequency=1000, amplitude=0.5)
+    match = level_match_gain_db(load_clip(effect_bytes))
+    clip = TimedClip(start_ms=1_000, end_ms=4_000, audio_bytes=effect_bytes, gain_db=match)
+
+    silence = AudioSegment.silent(duration=6_000, frame_rate=44100)
+    only_effect = overlay_on_story(_wav(silence), [clip])
+    assert abs(integrated_lufs(_wav(only_effect)) - TARGET_LUFS) < 1.5
+
+    voice_lufs = integrated_lufs(story_bytes)
+    mixed = overlay_on_story(story_bytes, [clip])
+    start = 1_000 + SFX_START_DELAY_MS + 100
+    effect_part = mixed[start : start + 2_500].overlay(
+        load_clip(story_bytes)[start : start + 2_500].invert_phase()
+    )
+    effect_lufs = integrated_lufs(_wav(effect_part))
+    assert abs((voice_lufs - effect_lufs) - SFX_UNDER_VOICE_LU) < 2.0
+
+
+def test_trim_start_skips_the_lead_in_so_the_sound_plays_at_the_cue():
+    lead_in = AudioSegment.silent(duration=2_500, frame_rate=44100)
+    growl = load_clip(sine_wav_bytes(2_000, frequency=200, amplitude=0.5))
+    clip_bytes = _wav(lead_in + growl)
+    start = 1_000 + SFX_START_DELAY_MS
+
+    untrimmed = place_clips([TimedClip(1_000, 3_000, clip_bytes)], 4_000)
+    trimmed = place_clips([TimedClip(1_000, 3_000, clip_bytes, trim_start_ms=2_500)], 4_000)
+
+    assert untrimmed[start + 50 : start + 1_500].rms == 0
+    assert trimmed[start + 50 : start + 1_500].rms > 1_000
+
+
+def test_a_quiet_recording_comes_out_at_the_output_loudness():
+    story_bytes = sine_wav_bytes(8_000, frequency=300, amplitude=0.02)
+    assert float(loudnorm_measure(story_bytes)["input_i"]) < OUTPUT_TARGET_LUFS - 15
+
+    out = loudnorm_measure(mix_on_story_bytes(story_bytes, []))
+
+    assert abs(float(out["input_i"]) - OUTPUT_TARGET_LUFS) < 1.0
+    assert float(out["input_tp"]) <= -1.0
+
+
+def test_a_peaky_quiet_recording_gets_louder_without_clipping():
+    """One near-full-scale click blocks a plain gain boost; the limiter path still gets it loud."""
+
+    quiet = load_clip(sine_wav_bytes(8_000, frequency=300, amplitude=0.05))
+    click = load_clip(sine_wav_bytes(5, frequency=300, amplitude=0.95))
+    story = quiet.overlay(click, position=4_000)
+    before = loudnorm_measure(_wav(story))
+    assert float(before["input_tp"]) > -1.5
+
+    out = loudnorm_measure(mix_on_story_bytes(_wav(story), []))
+
+    assert float(out["input_i"]) > float(before["input_i"]) + 8
+    assert float(out["input_tp"]) <= -1.0
+
+
+def test_a_silent_recording_still_exports():
+    silence = AudioSegment.silent(duration=2_000, frame_rate=44100)
+    mixed = load_clip(mix_on_story_bytes(_wav(silence), []))
+    assert abs(len(mixed) - 2_000) < 100
+
+
+def _effect_only(mixed: AudioSegment, story: AudioSegment, start: int, end: int) -> AudioSegment:
+    return mixed[start:end].overlay(story[start:end].invert_phase())
+
+
+def test_effect_drops_when_the_narrator_whispers_and_rises_when_they_speak_up():
+    loud = load_clip(sine_wav_bytes(4_000, frequency=300, amplitude=0.3))
+    whisper = load_clip(sine_wav_bytes(4_000, frequency=300, amplitude=0.03))
+    story = loud + whisper
+    effect_bytes = sine_wav_bytes(8_000, frequency=1000, amplitude=0.5)
+    from app.services.loudness import level_match_gain_db
+
+    match = level_match_gain_db(load_clip(effect_bytes))
+    clip = TimedClip(start_ms=0, end_ms=8_000, audio_bytes=effect_bytes, gain_db=match)
+
+    mixed = overlay_on_story(_wav(story), [clip])
+    during_loud = _effect_only(mixed, story, 1_000, 3_000)
+    during_whisper = _effect_only(mixed, story, 5_500, 7_500)
+
+    assert during_whisper.dBFS < during_loud.dBFS - 12
+    assert during_loud.dBFS < loud.dBFS - 6
+    assert during_whisper.dBFS < whisper.dBFS - 6
+
+
+def test_a_pause_holds_the_effect_at_the_last_spoken_level():
+    talk = load_clip(sine_wav_bytes(3_000, frequency=300, amplitude=0.1))
+    pause = AudioSegment.silent(duration=3_000, frame_rate=44100)
+    story = talk + pause + talk
+    clip = TimedClip(start_ms=0, end_ms=9_000, audio_bytes=sine_wav_bytes(9_000, frequency=1000, amplitude=0.5))
+
+    mixed = overlay_on_story(_wav(story), [clip])
+    during_talk = _effect_only(mixed, story, 1_000, 2_500)
+    during_pause = _effect_only(mixed, story, 3_700, 5_300)
+
+    assert abs(during_pause.dBFS - during_talk.dBFS) < 2
+
+
+def test_steady_narration_gives_a_flat_envelope():
+    story = load_clip(sine_wav_bytes(5_000, frequency=300, amplitude=0.1))
+    envelope = narration_envelope_db(story)
+    assert max(abs(value) for value in envelope) < 0.5
+
+
+def _wav(segment: AudioSegment) -> bytes:
+    import io
+
+    handle = io.BytesIO()
+    segment.export(handle, format="wav")
+    return handle.getvalue()
 
 
 def test_catalog_gain_puts_a_quiet_clip_at_the_same_level_as_a_loud_one():
